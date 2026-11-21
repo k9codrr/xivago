@@ -1,0 +1,23 @@
+{
+  "name": "@slotbook/push",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf node_modules .turbo dist"
+  },
+  "dependencies": {
+    "@slotbook/db": "workspace:*",
+    "firebase-admin": "^13.0.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/web-push": "^3.6.4",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "appId": "com.xivago.app",
+  "appName": "Xivago",
+  "webDir": "www",
+  "server": {
+    "url": "https://app.xivago.com",
+    "cleartext": false,
+    "allowNavigation": [
+      "app.xivago.com",
+      "*.xivago.com"
+    ]
+  },
+  "backgroundColor": "#000000",
+  "android": {
+    "backgroundColor": "#000000"
+  },
+  "ios": {
+    "backgroundColor": "#000000",
+    "contentInset": "never"
+  },
+  "plugins": {
+    "PrivacyScreen": {
+      "enable": false,
+      "preventScreenshots": true
+    }
+  }
+}

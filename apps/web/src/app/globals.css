@@ -1,0 +1,268 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Tailwind v4 class-based dark mode: toggled by next-themes adding/removing
+   `.dark` on <html> (see components/theme-provider.tsx). Without this
+   @custom-variant, `dark:` utilities would only respond to the OS
+   prefers-color-scheme media query, not a manual in-app toggle. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Wrong T-PIN */
+  --animate-pin-shake: pin-shake 0.4s ease-in-out;
+  @keyframes pin-shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-8px); }
+    40%, 80% { transform: translateX(8px); }
+  }
+
+  /* Brand (Brand_Color_Specifications.pdf): an indigo scale anchored on
+     Electric Indigo #4F46E5 at 600, so every bg/text/border-brand-* follows it. */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5; /* Electric Indigo -- primary */
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-brand-950: #1e1b4b;
+
+  /* Named brand colors, for the places that use them directly. */
+  --color-crimson: #ff3b30;     /* Crimson Fire -- growth arrow, high highlights */
+  --color-sapphire: #3b82f6;    /* Sapphire -- active states, gradient mid-tone */
+  --color-slate-navy: #1e293b;  /* Slate Navy -- wordmark & primary type (text on pearl buttons) */
+  --color-pearl: #f8fafc;       /* Pearl Off-White -- used instead of pure white on buttons/pills */
+  --color-deep-slate: #0f172a;  /* Deep Slate -- dark surface */
+  --color-mint: #10b981;        /* Emerald Mint -- positive badges, success states */
+  --color-mint-deep: #059669;   /* Emerald Mint (Deep) -- accessible success text */
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Bottom nav height, referenced by page padding so content never hides
+     under the fixed nav — see §7. */
+  --spacing-bottom-nav: 0rem; /* 64px */
+}
+
+:root {
+  color-scheme: light;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+html,
+body {
+  height: 100%;
+  position: relative;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+  /* iOS PWA: avoid rubber-band showing white flash */
+  overscroll-behavior-y: none;
+}
+
+/* Every touch target should clear the 44px accessibility minimum (§10). */
+button,
+a[role="button"],
+input,
+select,
+textarea {
+  min-height: 44px;
+}
+
+/* Utility for the 3-slot avatar strip / countdown badges to avoid
+   re-declaring the same rounded-2xl mobile card shell everywhere. */
+.card-shell {
+  @apply rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900;
+}
+
+/* Expired demand cards: greyed out, no text selection, no copy (§3.8). */
+.card-expired {
+  @apply pointer-events-none select-none opacity-60 grayscale;
+}
+
+/* Signature brand gradient: Electric Indigo -> Sapphire -> Crimson Fire. */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(90deg, #4f46e5 0%, #3b82f6 50%, #ff3b30 100%);
+}
+
+::selection {
+  background-color: var(--color-brand-200);
+}
+
+/* Smooth theme transitions on the properties that actually change,
+   instead of `transition: all` (which fights layout animations elsewhere). */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 150ms;
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* ── Pull-to-refresh logo (logo-pull-to-refresh.tsx) ─────────────────── */
+/* The root element drives the browser's own pull-to-refresh (a full page
+   reload); ours replaces it, so turn the native one off everywhere. */
+html {
+  overscroll-behavior-y: none;
+}
+
+@keyframes ptr-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ptr-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(200deg) scale(0.86); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.ptr-pop {
+  animation: ptr-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ptr-spin {
+  animation: ptr-spin 850ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ptr-pop { animation: none; }
+  .ptr-spin { animation: ptr-pulse 900ms ease-in-out infinite; }
+  @keyframes ptr-pulse {
+    50% { opacity: 0.45; }
+  }
+}
+
+/* Screenshot guard (components/screenshot-guard.tsx): nothing prints while protected content is open. */
+@media print {
+  html.screenshot-guarded body {
+    display: none !important;
+  }
+}
+.screenshot-guard img,
+.screenshot-guard video {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}

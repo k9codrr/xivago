@@ -1,0 +1,1419 @@
+// SlotBook Marketplace — Prisma Schema v2 (Razorpay from day one)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  VENDOR
+  BUSINESS
+  ADMIN
+}
+
+enum DemandStatus {
+  OPEN
+  FILLED
+  EXPIRED
+  CANCELLED
+}
+
+enum DemandPostType {
+  PROMOTE
+  REQUIREMENT
+}
+
+enum DemandEngagementKind {
+  VIEW
+  CARD_CLICK
+}
+
+enum CreditType {
+  GRANT
+  PURCHASE
+  BOOST
+  TRANSFER_IN
+  TRANSFER_OUT
+  FEATURED_HOLD
+  FEATURED_REFUND
+  PAYMENT_REFUND // credits taken back when an admin refunds a top-up to the user's bank
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  HALTED
+}
+
+enum PaymentType {
+  SLOT // slot purchase on a demand
+  PLAN // PRO subscription
+  CREDITS // credit top-up
+}
+
+enum RefundRequestStatus {
+  PENDING
+  APPROVED // refunded
+  REJECTED
+  CANCELLED // withdrawn by the user
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum SpinKind {
+  FORTNIGHTLY // one free spin every 14 days
+  SLOT_BONUS // earned by buying 2 slots within a week
+}
+
+enum RatingDirection {
+  SEEKER_TO_VENDOR
+  VENDOR_TO_SEEKER
+}
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  name         String
+  // Public handle for "@username" mentions (lowercase a-z, 0-9, _). Unique;
+  // null only on accounts created before handles existed -- see lib/username.ts.
+  username     String? @unique
+  role         Role    @default(VENDOR)
+
+  bio         String?  @db.VarChar(300)
+  avatarUrl   String?
+  companyName String?
+  companyLogo String?
+  website     String?
+  phone       String?
+  services    String[]
+  location    String?
+
+  // What a provider offers, from apps/web/src/lib/categories.ts
+  // (sub "1.4" -> provider "1.4.2" -> problem "1.4.2.1"). Empty for users
+  // who haven't picked yet; `services` above remains the free-text tag list.
+  categorySubIds      String[] @default([])
+  categoryProviderIds String[] @default([])
+  categoryProblemIds  String[] @default([])
+
+  creditBalance Int     @default(0)
+  isVerified    Boolean @default(false)
+  isBanned      Boolean @default(false)
+
+  trialEndsAt    DateTime?
+  dataDeletionAt DateTime?
+
+  // Latest accepted Terms + Privacy Policy version (lib/consent.ts). The full
+  // history, with timestamps, lives in ConsentLog.
+  consentVersion    String?
+  consentAcceptedAt DateTime?
+  // When the user last confirmed they are 18 or older (consent screen).
+  ageConfirmedAt    DateTime?
+
+  baseProfile       Json?
+  influencerProfile Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  demands                Demand[]
+  featuredBids           FeaturedBid[]
+  featuredPlacements     FeaturedPlacement[]
+  bids                   Bid[]
+  conversationsInit      Conversation[]          @relation("buyerSide")
+  conversationsAsBid     Conversation[]          @relation("bidderSide")
+  messages               Message[]
+  forumMessages          ForumMessage[]
+  creditTxns             CreditTransaction[]
+  subscription           Subscription?
+  payments               Payment[]
+  refundRequests         RefundRequest[]
+  metaLink               MetaAccountLink?
+  // --- M7 forum extension (threads/likes/comments/attachments/reports) ---
+  // Additive only -- see DECISIONS.md #43. Nothing above this line changed.
+  forumComments          ForumComment[]
+  forumReactions         ForumReaction[]
+  forumReports           ForumReport[]
+  reportsFiled           Report[]                @relation("reportsFiled")
+  reportsAgainst         Report[]                @relation("reportsAgainst")
+  // --- Chat extension -- see DECISIONS.md #49.
+  messageReactions       MessageReaction[]
+  // --- Follow system -- see DECISIONS.md #51.
+  following              Follow[]                @relation("Following")
+  followers              Follow[]                @relation("Followers")
+  // --- Community extension -- see DECISIONS.md #53.
+  communitiesCreated     Community[]
+  communityMemberships   CommunityMember[]
+  bookmarks              Bookmark[]
+  // --- Ratings extension ---
+  ratingsGiven           Rating[]                @relation("RatingsGiven")
+  ratingsReceived        Rating[]                @relation("RatingsReceived")
+  // --- Poll extension ---
+  forumPollVotes         ForumPollVote[]
+  // --- Credit transfer extension ---
+  creditTransferRequests CreditTransferRequest[]
+  // --- Refer & earn + Spin & Win ---
+  referralCode           String?                 @unique
+  referredById           String?
+  referredBy             User?                   @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals              User[]                  @relation("Referrals")
+  spinWins               SpinWin[]
+  // --- Trust & badges ---
+  trust                  UserTrust[]
+  roleStats              RoleStats[]
+  badges                 UserBadge[]
+  badgeEvents            BadgeEvent[]
+  dealCheckIns           DealCheckIn[]
+  dealCheckInStates      DealCheckInState[]
+  // --- Push notifications ---
+  deviceTokens           DeviceToken[]
+  // --- Activity / in-app notifications ---
+  notifications          Notification[]          @relation("NotificationRecipient")
+  notificationsActed     Notification[]          @relation("NotificationActor")
+  // --- Credit payments: T-PIN + invoices ---
+  transactionPin         TransactionPin?
+  invoices               Invoice[]
+  // --- Forum bookmarks / reposts / shares ---
+  forumBookmarks         ForumBookmark[]
+  forumReposts           ForumRepost[]
+  forumShares            ForumShare[]
+  // --- Email one-time codes (Resend) ---
+  emailCodes             EmailCode[]
+  // --- Profile QR scans (Explore recommendations) ---
+  qrScansMade            QrScan[]                @relation("QrScansMade")
+  qrScansReceived        QrScan[]                @relation("QrScansReceived")
+  // --- Chat presence: last time any socket of theirs was connected (null = never / unknown).
+  lastSeenAt             DateTime?
+  // --- Bookmark folders (Instagram-style collections) ---
+  bookmarkCollections    BookmarkCollection[]
+
+  @@map("users")
+}
+
+// Kept off `User` so a query without a `select` can never leak the hash.
+model TransactionPin {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pinHash             String
+  failedAttempts      Int       @default(0)
+  lockedUntil         DateTime?
+  // Counted apart so a user locked out of their T-PIN can still reset it.
+  resetFailedAttempts Int       @default(0)
+  resetLockedUntil    DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("transaction_pins")
+}
+
+enum InvoiceKind {
+  SLOT_PURCHASE
+  PRIORITY_BOOST
+  DEMAND_POST
+  FEATURED_BID
+}
+
+// A permanent record of one credit payment. Everything shown on it is a
+// snapshot, so later edits to the user or the demand never change it.
+model Invoice {
+  id           String      @id @default(cuid())
+  number       String      @unique
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         InvoiceKind
+  title        String
+  items        Json // [{ label, credits }]
+  totalCredits Int
+  balanceAfter Int
+  billedToName String
+  demandId     String?
+  createdAt    DateTime    @default(now())
+
+  @@index([userId, createdAt])
+  @@map("invoices")
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  demandId  String
+  demand    Demand   @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, demandId])
+  @@index([userId])
+  @@map("bookmarks")
+}
+
+/// Bookmark folders, like Instagram "Collections". Saving still lands in the
+/// flat Bookmark / ForumBookmark lists ("All saved"); a collection is an
+/// optional grouping on top. Removing the bookmark removes it from every folder.
+model BookmarkCollection {
+  id        String                   @id @default(cuid())
+  userId    String
+  user      User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String                   @db.VarChar(60)
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  items     BookmarkCollectionItem[]
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt])
+  @@map("bookmark_collections")
+}
+
+/// One saved item in a collection: exactly one of demandId / postId is set.
+model BookmarkCollectionItem {
+  id           String             @id @default(cuid())
+  collectionId String
+  collection   BookmarkCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  demandId     String?
+  demand       Demand?            @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  postId       String?
+  post         ForumMessage?      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+
+  @@unique([collectionId, demandId])
+  @@unique([collectionId, postId])
+  @@index([collectionId, createdAt])
+  @@map("bookmark_collection_items")
+}
+
+/// One row per (scanner, scanned) pair: who scanned whose profile QR on Explore.
+/// Feeds the "Recommended" people row. Re-scans bump count + lastScannedAt.
+model QrScan {
+  id            String   @id @default(cuid())
+  scannerId     String
+  scanner       User     @relation("QrScansMade", fields: [scannerId], references: [id], onDelete: Cascade)
+  scannedId     String
+  scanned       User     @relation("QrScansReceived", fields: [scannedId], references: [id], onDelete: Cascade)
+  count         Int      @default(1)
+  lastScannedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([scannerId, scannedId])
+  @@index([scannerId, lastScannedAt])
+  @@index([scannedId, lastScannedAt])
+  @@map("qr_scans")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@index([followerId])
+  @@map("follows")
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  userId           String             @unique
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan   @default(FREE)
+  status           SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd DateTime?
+  razorpaySubId    String?            @unique
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                   String          @id @default(cuid())
+  userId               String
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                 PaymentType
+  status               PaymentStatus   @default(CREATED)
+  amountPaise          Int
+  currency             String          @default("INR")
+  razorpayOrderId      String          @unique
+  razorpayPaymentId    String?         @unique
+  razorpaySignature    String?
+  demandId             String? // for SLOT payments
+  slotCount            Int? // 1 or 3 for SLOT payments
+  failureReason        String?
+  refundedAt           DateTime?
+  // Admin refunds: what went back to the customer after the gateway fee + GST
+  // on it were kept, and how many unspent credits were taken back.
+  razorpayRefundId     String?         @unique
+  refundAmountPaise    Int?
+  refundDeductionPaise Int?
+  refundCredits        Int?
+  refundSpeed          String? // "instant" | "normal" as Razorpay processed it
+  refundRequests       RefundRequest[]
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("payments")
+}
+
+model CreditTransaction {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  type      CreditType
+  demandId  String?
+  note      String?
+  createdAt DateTime   @default(now())
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+model Demand {
+  id       String @id @default(cuid())
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  postType          DemandPostType   @default(PROMOTE)
+  // Only set on REQUIREMENT posts: who the poster is looking for.
+  requirementRoleId String?
+  requirementRole   RequirementRole? @relation(fields: [requirementRoleId], references: [id], onDelete: Restrict)
+
+  summary            String    @db.VarChar(500)
+  // New posts store one price in both columns. Older posts may hold a real range.
+  budgetMin          Int?
+  budgetMax          Int?
+  currency           String    @default("INR")
+  // How long the post stays open for providers to connect ("Connect within").
+  timelineEnd        DateTime
+  // When the work itself should be done -- a code from apps/web/src/lib/completion-timeline.ts
+  // (e.g. "WEEK_2", "MONTH_3", "DATE"). completionDate is set only for "DATE".
+  completionTimeline String?   @db.VarChar(20)
+  completionDate     DateTime?
+
+  categoryParentId   String?
+  categorySubId      String?
+  categoryName       String?
+  subCategoryName    String?
+  // Optional finer levels under categorySubId. Older demands only have the sub id.
+  categoryProviderId String?
+  categoryProblemIds String[] @default([])
+  // Up to 5 tags from the category workbook, picked when posting.
+  tags               String[] @default([])
+  selectedTechInputs Json?
+  mediaUrls          String[] @default([])
+
+  lat Float?
+  lng Float?
+  // Human-readable place picked in the post drawer (e.g. "Koramangala, Bengaluru").
+  locationName String? @db.VarChar(200)
+
+  status DemandStatus @default(OPEN)
+
+  isPriority        Boolean   @default(false)
+  priorityExpiresAt DateTime?
+
+  shareContact Boolean @default(false)
+  maxSlots     Int     @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bids               Bid[]
+  conversations      Conversation[]
+  bookmarks          Bookmark[]
+  collectionItems    BookmarkCollectionItem[]
+  featuredBids       FeaturedBid[]
+  featuredPlacements FeaturedPlacement[]
+  engagements        DemandEngagement[]
+  reports            Report[]
+
+  @@index([status, timelineEnd])
+  @@index([authorId, createdAt])
+  @@index([status, isPriority, createdAt])
+  @@index([lat, lng])
+  @@index([requirementRoleId])
+  @@map("demands")
+}
+
+/// Admin-managed list of roles a REQUIREMENT post can ask for.
+model RequirementRole {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(40)
+  description String?  @db.VarChar(120)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  demands Demand[]
+
+  @@index([isActive, sortOrder])
+  @@map("requirement_roles")
+}
+
+/// One row per demand, event kind, viewer and UTC day; count holds repeats within that day.
+model DemandEngagement {
+  demandId  String
+  demand    Demand               @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  kind      DemandEngagementKind
+  // "u:<userId>" when signed in, "a:<random device id>" otherwise.
+  viewerKey String               @db.VarChar(80)
+  day       DateTime             @db.Date
+  count     Int                  @default(1)
+
+  @@id([demandId, kind, viewerKey, day])
+  @@map("demand_engagements")
+}
+
+model Bid {
+  id        String   @id @default(cuid())
+  demandId  String
+  demand    Demand   @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  bidderId  String
+  bidder    User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+  slot      Int
+  pitch     String   @db.VarChar(280)
+  paymentId String   @unique
+  createdAt DateTime @default(now())
+
+  ratings       Rating[]
+  checkIns      DealCheckIn[]
+  checkInStates DealCheckInState[]
+
+  @@unique([demandId, slot])
+  @@unique([demandId, bidderId])
+  @@index([bidderId, createdAt])
+  @@map("bids")
+}
+
+model Conversation {
+  id       String  @id @default(cuid())
+  // null = a direct chat opened by a PRO user with no slot/demand behind it
+  // (see DECISIONS.md-style note in /api/conversations/route.ts).
+  demandId String?
+  demand   Demand? @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  buyerId  String
+  buyer    User    @relation("buyerSide", fields: [buyerId], references: [id], onDelete: Cascade)
+  bidderId String
+  bidder   User    @relation("bidderSide", fields: [bidderId], references: [id], onDelete: Cascade)
+
+  // Message requests: a direct chat started by someone without PRO opens as
+  // PENDING. On a request, buyerId is the sender and bidderId the recipient.
+  // The sender can write; the recipient only reads until they accept
+  // (-> ACTIVE) or decline (-> DECLINED, closed to both sides).
+  status     ConversationStatus @default(ACTIVE)
+  acceptedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  messages  Message[]
+
+  @@unique([demandId, buyerId, bidderId])
+  @@index([bidderId, status])
+  @@map("conversations")
+}
+
+enum ConversationStatus {
+  ACTIVE
+  PENDING
+  DECLINED
+}
+
+model Message {
+  id             String              @id @default(cuid())
+  conversationId String
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text           String
+  readAt         DateTime?
+  // Set once the recipient's device has received it (double grey tick); readAt = blue ticks.
+  deliveredAt    DateTime?
+  // Sent with "Forward" from another chat (shows a "Forwarded" label).
+  forwarded      Boolean             @default(false)
+  // "Delete for everyone": the row stays (replies keep their anchor) but text/attachments are hidden.
+  deletedAt      DateTime?
+  createdAt      DateTime            @default(now())
+  // --- Chat extension (attachments/reactions/replies) -- see
+  // DECISIONS.md #49. Additive only; everything above is unchanged.
+  replyToId      String?
+  replyTo        Message?            @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[]           @relation("MessageReplies")
+  attachments    MessageAttachment[]
+  reactions      MessageReaction[]
+
+  @@index([conversationId, createdAt])
+  @@index([replyToId])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  messageId   String
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  url         String
+  contentType String
+  createdAt   DateTime @default(now())
+
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String   @default("👍")
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+
+model ForumMessage {
+  id          String            @id @default(cuid())
+  senderId    String
+  sender      User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text        String            @db.VarChar(1000)
+  createdAt   DateTime          @default(now())
+  deletedAt   DateTime?
+  // --- M7 forum extension -- see DECISIONS.md #43. Everything above this
+  // line is byte-for-byte the original §5 definition, unchanged.
+  comments    ForumComment[]
+  attachments ForumAttachment[]
+  // --- Community extension -- see DECISIONS.md #53. Null = the original
+  // single global forum feed; set = a post inside that community. Reuses
+  // every existing forum mechanism (comments, reactions, attachments,
+  // reports, moderation) rather than duplicating it for communities.
+  communityId String?
+  community   Community?        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  // --- Location tag, for the "near me" feed filter. Reuses the same
+  // haversine/bounding-box approach as Demand (see lib/geo.ts). ---
+  lat Float?
+  lng Float?
+
+  poll ForumPoll?
+
+  bookmarks       ForumBookmark[]
+  collectionItems BookmarkCollectionItem[]
+  reposts         ForumRepost[]
+  shares    ForumShare[]
+
+  @@index([createdAt])
+  @@index([communityId, createdAt])
+  @@index([lat, lng])
+  @@map("forum_messages")
+}
+
+// --- Forum bookmarks / reposts / shares. Kept separate from `Bookmark`,
+// which is FK-bound to Demand. One bookmark and one repost per user per post;
+// shares are an append-only log (one row per send / external share) so the
+// share count is simply the row count.
+model ForumBookmark {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      ForumMessage @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId, createdAt])
+  @@map("forum_bookmarks")
+}
+
+model ForumRepost {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      ForumMessage @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId, createdAt])
+  @@map("forum_reposts")
+}
+
+model ForumShare {
+  id        String       @id @default(cuid())
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  postId    String
+  post      ForumMessage @relation(fields: [postId], references: [id], onDelete: Cascade)
+  // "dm" | "copy" | "native" | "whatsapp" | "x" | "telegram" | "facebook" | "linkedin" | "email" | "sms"
+  channel   String       @db.VarChar(20)
+  createdAt DateTime     @default(now())
+
+  @@index([postId])
+  @@map("forum_shares")
+}
+
+model ForumPoll {
+  id       String            @id @default(cuid())
+  postId   String            @unique
+  post     ForumMessage      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  closesAt DateTime?
+  options  ForumPollOption[]
+
+  @@map("forum_polls")
+}
+
+model ForumPollOption {
+  id     String          @id @default(cuid())
+  pollId String
+  poll   ForumPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text   String          @db.VarChar(80)
+  votes  ForumPollVote[]
+
+  @@index([pollId])
+  @@map("forum_poll_options")
+}
+
+model ForumPollVote {
+  id       String          @id @default(cuid())
+  pollId   String // denormalized from option.pollId so "one vote per poll" can be a DB constraint, not an app-level check
+  optionId String
+  option   ForumPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId]) // single-choice: one vote per poll per user
+  @@index([optionId])
+  @@map("forum_poll_votes")
+}
+
+model Community {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(80)
+  slug        String   @unique
+  description String?  @db.VarChar(500)
+  coverImage  String?
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  posts   ForumMessage[]
+  members CommunityMember[]
+
+  @@index([createdAt])
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime  @default(now())
+
+  @@unique([communityId, userId])
+  @@index([communityId])
+  @@index([userId])
+  @@map("community_members")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// M7 FORUM EXTENSION -- added by explicit, direct instruction in this
+// conversation (Threads-style posts: comments, emoji reactions,
+// attachments, reporting). NOT part of the original §5 spec, which only
+// described a flat single-channel `ForumMessage` feed. Purely additive:
+// no existing model, field, enum, or index above this point was changed.
+// See DECISIONS.md #43-#46 for the full reasoning, including the two
+// polymorphic tables (ForumReaction, ForumReport) that deliberately follow
+// the SAME "plain id column, no @relation" pattern the original schema
+// already uses for Bid.paymentId / Payment.demandId, rather than
+// introducing Prisma's lack of native polymorphic relations as a new
+// problem.
+// ═══════════════════════════════════════════════════════════════════════
+
+model ForumComment {
+  id        String       @id @default(cuid())
+  messageId String
+  message   ForumMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text      String       @db.VarChar(1000)
+  createdAt DateTime     @default(now())
+  deletedAt DateTime?
+
+  @@index([messageId, createdAt])
+  @@map("forum_comments")
+}
+
+enum ForumReactionTarget {
+  MESSAGE
+  COMMENT
+}
+
+model ForumReaction {
+  id         String              @id @default(cuid())
+  targetType ForumReactionTarget
+  targetId   String // ForumMessage.id or ForumComment.id -- polymorphic, joined in app code (no @relation, same pattern as Bid.paymentId)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji      String              @default("👍") // one of a small curated set enforced in app code
+  createdAt  DateTime            @default(now())
+
+  @@unique([targetType, targetId, userId]) // one reaction per user per post/comment; changing emoji replaces it
+  @@index([targetType, targetId])
+  @@map("forum_reactions")
+}
+
+enum ForumAttachmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ForumAttachment {
+  id             String                @id @default(cuid())
+  messageId      String
+  message        ForumMessage          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  url            String
+  contentType    String
+  status         ForumAttachmentStatus @default(PENDING) // fail-closed: hidden from the public feed until APPROVED -- see DECISIONS.md #45
+  moderationNote String?
+  createdAt      DateTime              @default(now())
+
+  @@index([messageId])
+  @@map("forum_attachments")
+}
+
+enum ForumReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum ForumReportTarget {
+  MESSAGE
+  COMMENT
+}
+
+model ForumReport {
+  id         String            @id @default(cuid())
+  targetType ForumReportTarget
+  targetId   String // polymorphic, same pattern as ForumReaction
+  reporterId String
+  reporter   User              @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String            @db.VarChar(300)
+  status     ForumReportStatus @default(OPEN)
+  createdAt  DateTime          @default(now())
+
+  @@index([targetType, targetId])
+  @@index([status, createdAt])
+  @@map("forum_reports")
+}
+
+enum ReportTarget {
+  DEMAND
+  USER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+/// Reports filed from a demand's detail page, against the post itself or
+/// its author. `demandId` is always set so admins see the context even for a
+/// USER report; `reportedUserId` is resolved server-side so an anonymous
+/// poster's identity never reaches the reporter's browser.
+model Report {
+  id             String       @id @default(cuid())
+  targetType     ReportTarget
+  demandId       String?
+  demand         Demand?      @relation(fields: [demandId], references: [id], onDelete: SetNull)
+  reportedUserId String?
+  reportedUser   User?        @relation("reportsAgainst", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  reporterId     String
+  reporter       User         @relation("reportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  reason         String       @db.VarChar(80)
+  details        String?      @db.VarChar(500)
+  status         ReportStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+
+  @@index([status, createdAt])
+  @@index([demandId])
+  @@index([reportedUserId])
+  @@index([reporterId, createdAt])
+  @@map("reports")
+}
+
+model MetaAccountLink {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsappId    String?
+  facebookId    String?
+  instagramId   String?
+  igAccessToken String?
+  notifPrefs    Json    @default("{}")
+
+  @@map("meta_account_links")
+}
+
+// --- Push notifications ---
+// One row per device/browser. `token` is an FCM registration token for
+// ios/android, or a JSON-encoded Web Push subscription for platform "web".
+model DeviceToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  platform   String // "ios" | "android" | "web"
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// --- Activity / in-app notifications ---
+// The user's notification inbox (the "Notifications" tab on /activity).
+// Written by apps/web lib/notifications.ts, which also sends the push.
+// `pushedAt` doubles as an outbox flag: rows written inside a transaction
+// are pushed right after commit, and any left undelivered are swept by cron.
+// Chat messages are deliberately NOT stored here (they live in /chats).
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String // recipient
+  user      User      @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId   String? // who caused it; null for system events (payments, refunds)
+  actor     User?     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type      String // see NotificationType in apps/web lib/notifications.ts
+  title     String
+  body      String
+  url       String? // in-app path opened on tap
+  entityId  String? // the post/demand/transfer it's about -- used to collapse repeats
+  data      Json?
+  readAt    DateTime?
+  pushedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@index([pushedAt, createdAt])
+  @@map("notifications")
+}
+
+model NotificationLog {
+  id           String   @id @default(cuid())
+  waMessageId  String?  @unique
+  toPhone      String
+  templateName String
+  status       String   @default("SENT")
+  payload      Json?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@map("notification_log")
+}
+
+// --- Ratings extension (profile trust score) ---
+model Rating {
+  id          String @id @default(cuid())
+  bidId       String
+  bid         Bid    @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  raterId     String
+  rater       User   @relation("RatingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUserId String
+  ratedUser   User   @relation("RatingsReceived", fields: [ratedUserId], references: [id], onDelete: Cascade)
+
+  direction RatingDirection
+
+  responsiveness Int
+  quality        Int
+  timeliness     Int
+  value          Int
+
+  comment String? @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+
+  @@unique([bidId, raterId])
+  @@index([ratedUserId])
+  @@map("ratings")
+}
+
+// --- P2P credit transfer via QR ---
+model CreditTransferRequest {
+  id          String         @id @default(cuid())
+  requesterId String
+  requester   User           @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  amount      Int? // null = sender chooses the amount when scanning
+  token       String         @unique
+  status      TransferStatus @default(PENDING)
+  expiresAt   DateTime
+  createdAt   DateTime       @default(now())
+
+  @@index([requesterId, createdAt])
+  @@map("credit_transfer_requests")
+}
+
+// --- Spin & Win: one row per spin, the prize is credited via applyCreditDelta ---
+model SpinWin {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      SpinKind
+  amount    Int
+  createdAt DateTime @default(now())
+
+  @@index([userId, kind, createdAt])
+  @@map("spin_wins")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Featured hero placements — a repeating per-niche cycle (default 5 days)
+// for the home hero, separate from the per-demand vendor slot bids above.
+// Niche = parent category (lib/categories.ts id). Each niche runs either
+// FIXED (flat price, first come first served) or AUCTION (sealed bids,
+// quality-weighted, second-price). Money is credits: a bid debits the full
+// amount as a FEATURED_HOLD and the auction close refunds whatever isn't
+// charged (FEATURED_REFUND). Only live when FEATURED_BIDDING_ENABLED env AND
+// FeaturedSettings.enabled are both on.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum FeaturedMode {
+  FIXED
+  AUCTION
+}
+
+enum FeaturedCycleStatus {
+  BIDDING
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+enum FeaturedBidStatus {
+  HELD
+  WON
+  LOST
+  CANCELLED
+}
+
+enum FeaturedPlacementStatus {
+  ACTIVE
+  REMOVED
+  ENDED
+}
+
+model FeaturedSettings {
+  id                 String   @id @default("global")
+  enabled            Boolean  @default(false)
+  cycleDays          Int      @default(5)
+  slotsPerNiche      Int      @default(10) // hero (#1) + ranked #2..N
+  priceStep          Int      @default(10) // second-price increment, credits
+  maxConsecutiveWins Int      @default(0) // 0 = no cap on back-to-back hero wins
+  heroRotateTopN     Int      @default(1) // rotate hero among top N, weighted by price
+  updatedAt          DateTime @updatedAt
+
+  @@map("featured_settings")
+}
+
+// Per-day pricing for "Featured" post boosts (pinned to the top of the feed).
+// One row, edited in the admin panel at /admin/boosting. A boost lasts
+// minDays..maxDays and costs pricePerDay x days; an extension (a post that
+// was featured before, still running or already ended) uses the extend* values.
+model BoostSettings {
+  id                String   @id @default("global")
+  pricePerDay       Int      @default(30)
+  minDays           Int      @default(3)
+  maxDays           Int      @default(30)
+  extendPricePerDay Int      @default(30)
+  extendMinDays     Int      @default(3)
+  extendMaxDays     Int      @default(30)
+  updatedAt         DateTime @updatedAt
+
+  @@map("boost_settings")
+}
+
+model FeaturedNiche {
+  id           String       @id // parent category id, e.g. "3"
+  name         String
+  mode         FeaturedMode @default(FIXED)
+  isActive     Boolean      @default(true)
+  reservePrice Int          @default(199) // AUCTION minimum bid, credits
+  heroPrice    Int          @default(499) // FIXED hero price, credits
+  rankedPrice  Int          @default(199) // FIXED ranked-slot price, credits
+  updatedAt    DateTime     @updatedAt
+
+  bids       FeaturedBid[]
+  placements FeaturedPlacement[]
+
+  @@map("featured_niches")
+}
+
+model FeaturedCycle {
+  id       String              @id @default(cuid())
+  startsAt DateTime            @unique
+  endsAt   DateTime
+  status   FeaturedCycleStatus @default(BIDDING)
+  closedAt DateTime?
+
+  bids       FeaturedBid[]
+  placements FeaturedPlacement[]
+
+  @@index([status, startsAt])
+  @@map("featured_cycles")
+}
+
+model FeaturedBid {
+  id       String        @id @default(cuid())
+  cycleId  String
+  cycle    FeaturedCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  nicheId  String
+  niche    FeaturedNiche @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  demandId String
+  demand   Demand        @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount        Int // credits held (sealed — never shown to other sellers)
+  wantsHero     Boolean           @default(false) // FIXED mode: hero vs ranked purchase
+  status        FeaturedBidStatus @default(HELD)
+  qualityScore  Float?
+  rank          Int?
+  chargedAmount Int?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  placement FeaturedPlacement?
+
+  @@unique([cycleId, nicheId, userId])
+  @@index([cycleId, nicheId, status])
+  @@index([userId, createdAt])
+  @@map("featured_bids")
+}
+
+model FeaturedPlacement {
+  id       String        @id @default(cuid())
+  cycleId  String
+  cycle    FeaturedCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  nicheId  String
+  niche    FeaturedNiche @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  demandId String
+  demand   Demand        @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bidId    String        @unique
+  bid      FeaturedBid   @relation(fields: [bidId], references: [id], onDelete: Cascade)
+
+  rank             Int // rank at auction close; display rank shifts up when one above is removed
+  pricePaid        Int
+  status           FeaturedPlacementStatus @default(ACTIVE)
+  impressions      Int                     @default(0)
+  clicks           Int                     @default(0)
+  refundedAmount   Int                     @default(0)
+  removedReason    String?
+  removedAt        DateTime?
+  endingNotifiedAt DateTime?
+  createdAt        DateTime                @default(now())
+
+  @@index([cycleId, nicheId, status, rank])
+  @@index([userId, createdAt])
+  @@map("featured_placements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Trust & badges. Tiers are per role (VENDOR = slot buyer/bidder, SEEKER =
+// demand author) and only move on the monthly run (lib/trust.ts); ratings
+// stay live. Upgrades apply at once; a lower qualification sets a 30-day
+// warning and drops one tier if it still holds at the next run. Pills
+// (badge codes) follow the same rule. Every change is logged in BadgeEvent.
+// A deal counts once both sides' check-ins (DealCheckIn) don't contradict it
+// and the seeker has rated it — see completedDeals() in lib/trust.ts.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum TrustRole {
+  VENDOR
+  SEEKER
+}
+
+enum TrustTier {
+  NEW
+  BRONZE
+  SILVER
+  GOLD
+}
+
+enum BadgeEventType {
+  AWARDED
+  WARNED
+  DOWNGRADED
+  RESET
+}
+
+enum DealProgress {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  PROBLEM
+}
+
+model UserTrust {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         TrustRole
+  tier         TrustTier  @default(NEW)
+  tierSince    DateTime   @default(now())
+  warningTier  TrustTier?
+  warningUntil DateTime?
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, role])
+  @@map("user_trust")
+}
+
+model RoleStats {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role              TrustRole
+  completedDeals    Int       @default(0) // after the 3-per-partner cap and fraud exclusions
+  distinctPartners  Int       @default(0)
+  repeatPartners    Int       @default(0) // partners with 2+ counted deals
+  ratingCount       Int       @default(0)
+  avgRating         Float?
+  avgResponsiveness Float?
+  avgTimeliness     Float?
+  excludedDeals     Int       @default(0) // flagged by fraud checks
+  computedAt        DateTime  @default(now())
+
+  @@unique([userId, role])
+  @@map("role_stats")
+}
+
+model UserBadge {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeCode    String
+  awardedAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  warningUntil DateTime? // set when the user stops qualifying; revoked at the next run if still true
+
+  @@index([userId, revokedAt])
+  @@map("user_badges")
+}
+
+model BadgeEvent {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     BadgeEventType
+  reason    String
+  createdAt DateTime       @default(now())
+
+  @@index([userId, createdAt])
+  @@map("badge_events")
+}
+
+/**
+ * Answers to the in-chat "how's the project going?" drawer.
+ */
+model DealCheckIn {
+  id        String       @id @default(cuid())
+  bidId     String
+  bid       Bid          @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    DealProgress
+  mood      Int? // 1–5, "how's it going"
+  note      String?      @db.VarChar(500)
+  createdAt DateTime     @default(now())
+
+  @@index([bidId, userId, createdAt])
+  @@index([status, createdAt])
+  @@map("deal_check_ins")
+}
+
+/**
+ * Per participant: latest answer and when to ask next (randomised).
+ */
+model DealCheckInState {
+  bidId        String
+  bid          Bid           @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latestStatus DealProgress?
+  nextAskAt    DateTime? // null = stop asking
+  updatedAt    DateTime      @updatedAt
+
+  @@id([bidId, userId])
+  @@index([userId, nextAskAt])
+  @@map("deal_check_in_state")
+}
+
+/**
+ * One row per month the trust job has run (guards the daily cron).
+ */
+model TrustJobRun {
+  month String   @id // "2026-11" (IST)
+  ranAt DateTime @default(now())
+  stats Json?
+
+  @@map("trust_job_runs")
+}
+
+// A user asking for a credit top-up to go back to their bank. An admin
+// approves it (which runs the refund) or rejects it with a note.
+model RefundRequest {
+  id          String              @id @default(cuid())
+  paymentId   String
+  payment     Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason      String
+  status      RefundRequestStatus @default(PENDING)
+  adminNote   String?
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([paymentId])
+  @@map("refund_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Privacy: consent records and account deletions. Neither table has a
+// foreign key to User on purpose, so both survive the user being deleted
+// and stay as an audit trail. Shown in the admin panel at /admin/privacy.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// One row each time a user accepts the Terms of Service + Privacy Policy.
+model ConsentLog {
+  id             String   @id @default(cuid())
+  userId         String // plain id, no relation: kept after account deletion
+  policyVersion  String
+  // "SIGNUP" (email sign-up form), "LOGIN" (login screen checkbox, recorded
+  // right after sign-in) or "PROMPT" (consent screen shown inside the app).
+  source         String   @db.VarChar(20)
+  // Every tick / untick of the checkbox, in order: [{ action, at }]. `at` is
+  // the device clock; `createdAt` below is the trusted server time.
+  checkboxEvents Json?
+  // The separate "I am 18 or older" checkbox was ticked with this acceptance.
+  ageConfirmed   Boolean  @default(false)
+  ipAddress      String?  @db.VarChar(64)
+  userAgent      String?  @db.VarChar(400)
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("consent_logs")
+}
+
+/// One row per deleted account. Holds no posts or messages, only the fact of
+/// the deletion and how much content was removed.
+model AccountDeletionLog {
+  id               String   @id @default(cuid())
+  userId           String // the deleted user's former id
+  maskedEmail      String? // e.g. "ka***@gmail.com"
+  maskedPhone      String? // e.g. "+91******3210"
+  role             String
+  accountCreatedAt DateTime
+  // "SELF": the user deleted their own account from Settings
+  deletedBy        String   @default("SELF") @db.VarChar(20)
+  reason           String?  @db.VarChar(500)
+  // Counts of what was removed: { requests, responses, posts, comments, messages, ... }
+  removedCounts    Json
+  creditsForfeited Int      @default(0)
+  ipAddress        String?  @db.VarChar(64)
+  userAgent        String?  @db.VarChar(400)
+  deletedAt        DateTime @default(now())
+
+  financialRecord RetainedFinancialRecord?
+
+  @@index([deletedAt])
+  @@map("account_deletion_logs")
+}
+
+/// Payments, invoices and the credit ledger of a deleted account, kept in
+/// full (with the customer's real name, email and phone) for tax, accounting
+/// and dispute purposes. Everything else the user posted is deleted. Only
+/// admins can read it (/admin/privacy -> Deleted accounts).
+model RetainedFinancialRecord {
+  id                 String             @id @default(cuid())
+  deletionLogId      String             @unique
+  deletionLog        AccountDeletionLog @relation(fields: [deletionLogId], references: [id], onDelete: Cascade)
+  userId             String // the deleted user's former id
+  name               String
+  email              String
+  phone              String?
+  companyName        String?
+  accountCreatedAt   DateTime
+  deletedAt          DateTime           @default(now())
+  // Full rows as they were at deletion, dates as ISO strings.
+  payments           Json // Payment[] (Razorpay order / payment / refund ids, amounts, status, times)
+  invoices           Json // Invoice[] (number, items, totals, billed-to name, time)
+  creditTransactions Json // CreditTransaction[] (the full credit ledger)
+  refundRequests     Json // RefundRequest[] (withdrawal requests and decisions)
+  subscription       Json? // Subscription row, if any
+  // Quick summary: { paymentCount, capturedPaise, refundedPaise, invoiceCount, invoiceCredits, creditBalanceAtDeletion }
+  totals             Json
+  // Keep at least until this date (8 years: GST / Companies Act books retention).
+  retainUntil        DateTime
+
+  @@index([email])
+  @@index([deletedAt])
+  @@map("retained_financial_records")
+}
+
+// One-time codes sent by email through Resend (apps/web lib/email-otp.ts).
+// WhatsApp codes stay in NotificationLog, which is keyed by phone.
+model EmailCode {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email      String
+  purpose    String // "password-reset"
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, purpose, createdAt])
+  @@map("email_codes")
+}
