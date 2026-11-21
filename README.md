@@ -266,6 +266,27 @@ attachment/reaction tables.
   below communities inside the sidebar there must be shown 4-5 communities joined by the user and create all the community lisst named inside    
   the communitypart in the provided doc .xlsx file -->
 
+{
+  "crons": [
+    {
+      "path": "/api/cron/expire-demands",
+      "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/whatsapp-notifications",
+      "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/featured-cycle",
+      "schedule": "5 * * * *"
+    },
+    {
+      "path": "/api/cron/trust-monthly",
+      "schedule": "35 18 * * *"
+    }
+  ]
+}
+
 
 
   , media and all right , link , and all in tab like telegram does with the badge of his and all profile image kind     
