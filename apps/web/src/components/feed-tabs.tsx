@@ -65,10 +65,10 @@ export default async function FeedTabs() {
         <AppHeader
           user={{
             name: user.name ?? "",
-            handle: (user as any).handle ?? (user.name ? user.name.toLowerCase().replace(/\s+/g, "") : "user"),
+            handle: (user as { handle?: string }).handle ?? (user.name ? user.name.toLowerCase().replace(/\s+/g, "") : "user"),
             avatarUrl: user.image ?? "/icons/avatar-placeholder.svg",
-            followingCount: (user as any).followingCount ?? 0,
-            followerCount: (user as any).followerCount ?? 0,
+            followingCount: (user as { followingCount?: number }).followingCount ?? 0,
+            followerCount: (user as { followerCount?: number }).followerCount ?? 0,
             isPro: user.isPro ?? false,
           }}
         />

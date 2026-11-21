@@ -33,25 +33,46 @@
     "NEXT_PUBLIC_CREDIT_BOOST_COST",
     "SOCKET_PORT",
     "NEXT_PUBLIC_SOCKET_URL",
-    "SOCKET_JWT_SECRET"
+    "SOCKET_JWT_SECRET",
+    "MODERATION_API_URL",
+    "MODERATION_API_USER",
+    "MODERATION_API_KEY",
+    "RAZORPAY_INSTANT_REFUND_FEE_PAISE",
+    "FEATURED_BIDDING_ENABLED",
+    "VAPID_PRIVATE_KEY",
+    "VAPID_SUBJECT",
+    "RESEND_API_KEY",
+    "EMAIL_FROM"
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "clean": {
       "cache": false

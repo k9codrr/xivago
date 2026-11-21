@@ -242,7 +242,7 @@ export interface DemandCardData {
   categoryProviderId?: string | null;
   categoryProblemIds?: string[];
   tags?: string[];
-  selectedTechInputs?: Record<string, any> | null;
+  selectedTechInputs?: Record<string, unknown> | null;
   mediaUrls?: string[];
   lat?: number | null;
   lng?: number | null;

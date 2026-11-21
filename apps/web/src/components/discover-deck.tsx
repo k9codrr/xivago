@@ -70,7 +70,7 @@ export function DiscoverDeck() {
   if (isError) {
     return (
       <div className="card-shell flex flex-col items-center gap-3 p-8 text-center">
-        <p className="text-sm text-neutral-500">Couldn't load requests.</p>
+        <p className="text-sm text-neutral-500">Couldn&apos;t load requests.</p>
         <button onClick={() => void refetch()} className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold">
           <RefreshCw className="h-3.5 w-3.5" /> Try again
         </button>
@@ -95,8 +95,8 @@ export function DiscoverDeck() {
 
         {stack.length === 0 && (
           <div className="card-shell flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-            <p className="text-sm font-medium">You're all caught up 🎉</p>
-            <p className="text-xs text-neutral-500">New requests will appear here as they're posted.</p>
+            <p className="text-sm font-medium">You&apos;re all caught up 🎉</p>
+            <p className="text-xs text-neutral-500">New requests will appear here as they&apos;re posted.</p>
             <button
               onClick={() => { setDismissed(new Set()); void refetch(); }}
               className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold"

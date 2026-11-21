@@ -100,8 +100,8 @@ export default auth((req) => {
     pathname.startsWith("/api/payments") ||
     pathname.startsWith("/api/users/me");
 
-  if (!isPaymentAllowedPath && !(user as any).isPro) {
-    const createdAtStr = (user as any).createdAt;
+  if (!isPaymentAllowedPath && !(user as { isPro?: boolean }).isPro) {
+    const createdAtStr = (user as { createdAt?: string | Date }).createdAt;
     if (createdAtStr) {
       const createdTime = new Date(createdAtStr).getTime();
       const trialEndsTime = createdTime + 7 * 24 * 60 * 60 * 1000;
