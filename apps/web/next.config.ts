@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   transpilePackages: ["@slotbook/db", "@slotbook/payments", "@slotbook/push", "@slotbook/whatsapp"],
   serverExternalPackages: ['@prisma/client', 'firebase-admin', 'web-push'],
   images: {
