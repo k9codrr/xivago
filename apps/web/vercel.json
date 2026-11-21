@@ -1,20 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/expire-demands",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/whatsapp-notifications",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/featured-cycle",
-      "schedule": "5 * * * *"
-    },
-    {
-      "path": "/api/cron/trust-monthly",
-      "schedule": "35 18 * * *"
-    }
-  ]
+  "crons": [ ]
 }
