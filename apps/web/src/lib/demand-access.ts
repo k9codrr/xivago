@@ -28,6 +28,7 @@ export const DEMAND_CARD_SELECT = {
   subCategoryName: true,
   categoryProviderId: true,
   categoryProblemIds: true,
+  customProviderName: true,
   tags: true,
   selectedTechInputs: true,
   mediaUrls: true,

@@ -88,6 +88,8 @@ export const demandCreateSchema = z
     // Optional finer levels: provider "1.4.2" and problems "1.4.2.1" under categorySubId "1.4".
     categoryProviderId: z.string().trim().max(20).optional(),
     categoryProblemIds: z.array(z.string().trim().max(20)).max(10, "Pick up to 10 common needs").default([]),
+    // Custom "Who you are" (offers) / "Who should solve it" (requests) when the list doesn't have it.
+    customProviderName: z.string().trim().max(40, "Keep it to 40 characters").optional().nullable(),
     tags: z.array(z.string().trim().toLowerCase().max(80)).max(5, "Pick up to 5 tags").default([]),
     selectedTechInputs: z.record(z.any()).optional(),
     mediaUrls: z.array(z.string()).default([]),

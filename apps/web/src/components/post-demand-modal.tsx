@@ -1436,6 +1436,7 @@ import {
 } from "@/components/ui/family-drawer"
 import { SnapSheet, SheetScrollArea } from "@/components/ui/snap-sheet";
 import { useSheetStyle } from "@/lib/sheet-style";
+import { customTagError, normalizeTagInput } from "@/lib/custom-tags";
 
 type PostType = "PROMOTE" | "REQUIREMENT";
 type Step = "intent" | "role" | "category" | "sub" | "provider" | "details" | "reach" | "review";
@@ -1452,7 +1453,7 @@ const STEP_TITLES: Record<Step, string> = {
   category: "What are you promoting?",
   sub: "Pick a Sub Category",
   provider: "Service, common needs & tech",
-  details: "Describe, Budget & Timelines",
+  details: "Put a detailed Description",
   reach: "Service area & Featured",
   review: "Review & Post",
 };
@@ -1535,6 +1536,9 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
   const [selectedParent, setSelectedParent] = useState<ParentCategorySpec | null>(CATEGORIES_DATA[0] ?? null);
   const [selectedSub, setSelectedSub] = useState<SubCategorySpec | null>(CATEGORIES_DATA[0]?.subCategories[0] ?? null);
   const [selectedProvider, setSelectedProvider] = useState<ProviderSpec | null>(null);
+  // "Custom" in the Who you are / Who should solve it step: a typed provider type.
+  const [customProviderOpen, setCustomProviderOpen] = useState(false);
+  const [customProvider, setCustomProvider] = useState("");
   const [selectedProblemIds, setSelectedProblemIds] = useState<string[]>([]);
   const [selectedInputs, setSelectedInputs] = useState<Record<string, string[]>>({});
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -1624,6 +1628,12 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     locationName: place?.name ?? null,
   });
 
+  // A typed provider type (validated with the custom tag rules) wins over a pick.
+  const customProviderTrimmed = customProviderOpen ? customProvider.trim().replace(/\s+/g, " ") : "";
+  const customProviderError = customProviderTrimmed ? customTagError(normalizeTagInput(customProviderTrimmed)) : null;
+  const customProviderName = customProviderTrimmed && !customProviderError ? customProviderTrimmed : null;
+  const providerLabel = customProviderName ?? selectedProvider?.name ?? null;
+
   function choosePostType(type: PostType) {
     void haptic("medium");
     setPostType(type);
@@ -1650,11 +1660,18 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     setSelectedSub(sub);
     setSelectedProvider(null);
     setSelectedProblemIds([]);
+    setCustomProviderOpen(false);
+    setCustomProvider("");
   }
 
   function selectProvider(provider: ProviderSpec | null) {
     setSelectedProvider(provider);
     setSelectedProblemIds([]);
+    // Picking from the list replaces a typed one.
+    if (provider) {
+      setCustomProviderOpen(false);
+      setCustomProvider("");
+    }
   }
 
   function toggleProblem(problemId: string) {
@@ -1680,6 +1697,11 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     if (step === "category" && (!selectedParent || !selectedSub)) {
       void haptic("error");
       toast.error("Please select a challenge category.");
+      return;
+    }
+    if (step === "provider" && customProviderOpen && customProviderTrimmed && customProviderError) {
+      void haptic("error");
+      toast.error(customProviderError.replace(/tags/gi, "names"));
       return;
     }
     if (step === "details" && (summary.trim().length === 0 || overWordLimit)) {
@@ -1808,8 +1830,9 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
         categorySubId: selectedSub?.id,
         categoryName: selectedParent?.name,
         subCategoryName: selectedSub?.name,
-        categoryProviderId: selectedProvider?.id,
-        categoryProblemIds: selectedProvider ? selectedProblemIds : [],
+        categoryProviderId: customProviderName ? undefined : selectedProvider?.id,
+        categoryProblemIds: selectedProvider && !customProviderName ? selectedProblemIds : [],
+        customProviderName: customProviderName ?? undefined,
         tags: selectedTags,
         selectedTechInputs: selectedInputs,
         mediaUrls,
@@ -1833,6 +1856,8 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     setTimelineEnd(addHours(72));
     setSelectedTags([]);
     setMediaUrls([]);
+    setCustomProviderOpen(false);
+    setCustomProvider("");
     setIsPriority(false);
     setBoostDays(boostConfig.minDays);
     setPriceUnit(null);
@@ -1913,7 +1938,7 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     {
       label: "Category",
       value: selectedParent && selectedSub
-        ? `${selectedParent.name} › ${selectedSub.name}${selectedProvider ? ` › ${selectedProvider.name}` : ""}`
+        ? `${selectedParent.name} › ${selectedSub.name}${providerLabel ? ` › ${providerLabel}` : ""}`
         : "Custom",
       done: true,
       step: selectedParent ? "category" : null,
@@ -2236,7 +2261,9 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
               </span>
 
               <div className="space-y-2">
-                <Label className="text-xs font-semibold text-neutral-300">Who should solve it? (optional)</Label>
+                <Label className="text-xs font-semibold text-neutral-300">
+                  {isRequirement ? "Who should solve it? (optional)" : "Who you are (optional)"}
+                </Label>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedSub.providers.map((provider) => {
                     const active = selectedProvider?.id === provider.id;
@@ -2258,10 +2285,48 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                       </button>
                     );
                   })}
+                  {/* Not in the list → type it */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void haptic("selection");
+                      const next = !customProviderOpen;
+                      setCustomProviderOpen(next);
+                      if (next) selectProvider(null);
+                      else setCustomProvider("");
+                    }}
+                    aria-pressed={customProviderOpen}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg border border-dashed px-3 py-1.5 text-xs font-semibold transition-colors",
+                      customProviderOpen
+                        ? "border-white bg-white text-black"
+                        : "border-white/25 bg-transparent text-neutral-300 hover:bg-white/10"
+                    )}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Custom
+                  </button>
                 </div>
+                {customProviderOpen && (
+                  <div className="space-y-1">
+                    <Input
+                      autoFocus
+                      value={customProvider}
+                      onChange={(e) => setCustomProvider(e.target.value.slice(0, 40))}
+                      maxLength={40}
+                      placeholder={isRequirement ? "e.g. Wedding photographer" : "e.g. Certified yoga trainer"}
+                      aria-label={isRequirement ? "Who should solve it" : "Who you are"}
+                      className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-sm text-neutral-100 placeholder:text-neutral-600"
+                    />
+                    <p className={cn("text-[11px]", customProviderError ? "text-red-400" : "text-neutral-500")}>
+                      {customProviderError
+                        ? customProviderError.replace(/tags/gi, "names")
+                        : `${isRequirement ? "Type the kind of person you need" : "Type what you are"} · ${customProvider.trim().length}/40`}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {selectedProvider && (
+              {selectedProvider && !customProviderOpen && (
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-neutral-300">
                     What problem are you solving? <span className="font-normal text-neutral-500">(pick any)</span>
@@ -2328,7 +2393,7 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
               {selectedParent && selectedSub && (
                 <span className="inline-block rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-neutral-300">
                   {selectedParent.name} › {selectedSub.name}
-                  {selectedProvider && ` › ${selectedProvider.name}`}
+                  {providerLabel && ` › ${providerLabel}`}
                 </span>
               )}
               {selectedRole && (

@@ -1158,6 +1158,8 @@ import { ExploreHero } from "@/components/explore/explore-hero";
 import { ExploreQuickActions } from "@/components/explore/explore-quick-actions";
 import { RecommendedPeople } from "@/components/explore/recommended-people";
 import { NearbyForYou } from "@/components/nearby-for-you";
+import { ForYouStrip, newVisitSeed } from "@/components/for-you-strip";
+import { ScrollToTop } from "@/components/scroll-to-top";
 
 /* ---------- Data — swap with your APIs / images ---------- */
 
@@ -1177,6 +1179,8 @@ export default function Explore() {
   const { data: session } = useSession();
   const [me, setMe] = useState<{ id: string; name: string | null; avatarUrl: string | null; creditBalance: number } | null>(null);
   const [isPro, setIsPro] = useState(false);
+  // New per visit, so "For you" shows a different 10 each time.
+  const [visitSeed] = useState(newVisitSeed);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -1202,6 +1206,7 @@ export default function Explore() {
 
   return (
     <main className="min-h-dvh bg-black">
+      <ScrollToTop path="/explore" />
       <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-x-hidden bg-[#0a0a0a] pb-[110px] text-white antialiased">
         {/* ============ HERO ============ */}
         <ExploreHero
@@ -1231,6 +1236,17 @@ export default function Explore() {
 
         {/* ============ NEAR YOU (works even with the nearby filter off) ============ */}
         {session?.user && <NearbyForYou className="-mx-4 mt-2" />}
+
+        {/* ============ FOR YOU: offers, requests & feed posts (10 at a time) ============ */}
+        {session?.user && (
+          <ForYouStrip
+            kind="mixed"
+            seed={`${visitSeed}-explore`}
+            title="For you"
+            subtitle="Offers, requests & feed posts from your niches, likes, views and area"
+            className="mt-4"
+          />
+        )}
 
         {/* ============ STICKY SEARCH ============ */}
         {/* Search drawer opens from the header search button (tap, or double fast pull-down) */}

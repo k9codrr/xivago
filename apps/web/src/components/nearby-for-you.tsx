@@ -37,7 +37,14 @@ interface NearbyPost {
  * or not the "near me" filter is on. Uses the remembered location (no prompt
  * if it was allowed before); otherwise offers a one-tap opt-in.
  */
-export function NearbyForYou({ className }: { className?: string }) {
+export function NearbyForYou({
+  className,
+  show = "all",
+}: {
+  className?: string;
+  /** "people": only the people row (the feed mixes it in between posts). */
+  show?: "all" | "people";
+}) {
   const { lat, lng, loading, requestLocation } = useGeolocation();
   // Read after mount (localStorage) so server and first client render match.
   const [denied, setDenied] = useState(false);
@@ -89,7 +96,7 @@ export function NearbyForYou({ className }: { className?: string }) {
   }
 
   const people = data?.people ?? [];
-  const posts = data?.posts ?? [];
+  const posts = show === "people" ? [] : (data?.posts ?? []);
   if (people.length === 0 && posts.length === 0) return null;
 
   return (

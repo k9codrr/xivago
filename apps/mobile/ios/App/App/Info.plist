@@ -70,5 +70,11 @@
 	<string>Xivago uses your location to show requests and vendors near you.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Xivago uses your location to show requests and vendors near you.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Xivago uses your camera to scan profile QR codes and to take photos for your posts and chats.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Xivago uses your microphone when you record a video for a post or chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Xivago lets you pick photos and videos for your posts, chats and QR card.</string>
 </dict>
 </plist>

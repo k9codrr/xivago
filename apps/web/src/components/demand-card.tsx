@@ -189,31 +189,8 @@ import { formatBudgetRange } from "@/lib/money";
 import { withPriceUnit } from "@/lib/price-units";
 import { serviceAreaLabel } from "@/lib/service-area";
 import { cn } from "@/lib/utils";
-import {
-  FamilyDrawerAnimatedContent,
-  FamilyDrawerAnimatedWrapper,
-  FamilyDrawerClose,
-  FamilyDrawerContent,
-  FamilyDrawerHandle,
-  FamilyDrawerOverlay,
-  FamilyDrawerPortal,
-  FamilyDrawerRoot,
-  FamilyDrawerTitle,
-  FamilyDrawerTrigger,
-  FamilyDrawerViewContent,
-  LIQUID_GLASS_SHEET,
-  useFamilyDrawer,
-} from "@/components/ui/family-drawer";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer"
+import { SnapSheet, SheetScrollArea } from "@/components/ui/snap-sheet";
+import { useSheetStyle } from "@/lib/sheet-style";
 
 import { SlotStrip } from "@/components/slot-strip";
 import { TierMark } from "@/components/tier-mark";
@@ -243,6 +220,8 @@ export interface DemandCardData {
   subCategoryName?: string | null;
   categoryProviderId?: string | null;
   categoryProblemIds?: string[];
+  /** Typed provider type when the list didn't have it. */
+  customProviderName?: string | null;
   tags?: string[];
   selectedTechInputs?: Record<string, unknown> | null;
   mediaUrls?: string[];
@@ -298,7 +277,7 @@ function fallbackGradient(id: string): string {
 }
 
 /* ══════════════════════ COMPACT CARD (2-col grid) ══════════════════════ */
-function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen?: () => void }) {
+function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () => void }) {
   const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
@@ -308,7 +287,9 @@ function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen?: () =
   const typeLabel = demandTypeLabel(demand);
 
   return (
-    <DrawerTrigger
+    <button
+      type="button"
+      onClick={onOpen}
       className={cn(
         "group relative flex aspect-[3/4.4] h-auto w-full flex-col justify-between overflow-hidden rounded-[22px] bg-[#1C1C1E] p-0 text-left",
         "shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.96]",
@@ -424,12 +405,12 @@ function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen?: () =
           </span>
         </div>
       </div>
-    </DrawerTrigger>
+    </button>
   );
 }
 
 /* ══════════════════════ PROFILE CARD (2-col grid, photo + footer) ══════════════════════ */
-function ProfileCard({ demand }: { demand: DemandCardData }) {
+function ProfileCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () => void }) {
   const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
@@ -446,7 +427,9 @@ function ProfileCard({ demand }: { demand: DemandCardData }) {
   const slotPrice = calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees;
 
   return (
-    <DrawerTrigger
+    <button
+      type="button"
+      onClick={onOpen}
       className={cn(
         "group border-none relative flex h-auto w-full flex-col overflow-hidden bg-transparent p-0 text-left",
         "transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]",
@@ -539,7 +522,7 @@ function ProfileCard({ demand }: { demand: DemandCardData }) {
           <ChevronDown className="h-4 w-4" />
         </span>
       </div>
-    </DrawerTrigger>
+    </button>
   );
 }
 
@@ -554,32 +537,20 @@ function AuthorLink({ demand, className, children }: { demand: DemandCardData; c
 }
 
 /* ══════════════════════ FULL DETAIL SHEET ══════════════════════ */
-function DetailSheet({ demand, onClose }: { demand: DemandCardData; onClose?: () => void }) {
+function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: boolean; onClose: () => void }) {
+  const sheetStyle = useSheetStyle();
   const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
   const { provider, problems } = describeDemandCategory(demand.categoryProviderId, demand.categoryProblemIds);
-  const providerName = provider?.name;
+  const providerName = provider?.name ?? demand.customProviderName ?? undefined;
   const typeLabel = demandTypeLabel(demand);
 
   return (
-    <FamilyDrawerPortal>
-      <FamilyDrawerOverlay className="z-[55]" />
-      {/* Only the handle, X or Escape close this, so taps and swipes in the sheet can't dismiss it. */}
-      <FamilyDrawerContent
-        disableOutsideDismiss
-        className={cn("z-[60] flex max-h-[86dvh] min-h-[85dvh] w-full flex-col overflow-hidden mb-3 text-white sm:mb-4 sm:max-w-md", LIQUID_GLASS_SHEET)}
-      >
-      <FamilyDrawerTitle className="sr-only">{demand.summary}</FamilyDrawerTitle>
-      <div className="relative h-[30px] shrink-0 px-4 pt-3">
-        <FamilyDrawerHandle className="!h-1.5 !w-12 !bg-white/30 !opacity-100" />
-        {/* <FamilyDrawerClose className="right-4 top-2 h-9 w-9 border border-white/10 bg-white/[0.08]">
-          <X className="h-4 w-4 text-neutral-300" />
-        </FamilyDrawerClose> */}
-      </div>
-      {/* scrollable content */}
+    // Same half / full snap sheet (and the same look from Settings) as the post and feed drawers.
+    <SnapSheet open={open} onClose={onClose} label={demand.summary} theme={sheetStyle} className="text-white">
       <ScreenshotGuard className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-8 pt-2">
+      <SheetScrollArea className="space-y-5 px-4 pb-8 pt-2">
         {/* ── author block ── */}
         <div className="flex items-center justify-between gap-3">
           <AuthorLink demand={demand} className="flex min-w-0 items-center gap-3 transition-opacity active:opacity-60">
@@ -734,10 +705,9 @@ function DetailSheet({ demand, onClose }: { demand: DemandCardData; onClose?: ()
         </Link>
 
         <DemandStatsPanel demandId={demand.id} openedFromCard tone="glass" />
-      </div>
+      </SheetScrollArea>
       </ScreenshotGuard>
-      </FamilyDrawerContent>
-    </FamilyDrawerPortal>
+    </SnapSheet>
   );
 }
 
@@ -745,10 +715,11 @@ function DetailSheet({ demand, onClose }: { demand: DemandCardData; onClose?: ()
 export function DemandCard({ demand, layout = "classic" }: { demand: DemandCardData; layout?: CardLayout }) {
   // Controlled so "View Full Demand" can close the sheet as it navigates.
   const [sheetOpen, setSheetOpen] = useState(false);
+  const openSheet = () => setSheetOpen(true);
   return (
-    <FamilyDrawerRoot handleOnly open={sheetOpen} onOpenChange={setSheetOpen}>
-      {layout === "profile" ? <ProfileCard demand={demand} /> : <CompactCard demand={demand} />}
-      <DetailSheet demand={demand} onClose={() => setSheetOpen(false)} />
-    </FamilyDrawerRoot>
+    <>
+      {layout === "profile" ? <ProfileCard demand={demand} onOpen={openSheet} /> : <CompactCard demand={demand} onOpen={openSheet} />}
+      <DetailSheet demand={demand} open={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
   );
 }

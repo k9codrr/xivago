@@ -40,7 +40,7 @@ function hash(str: string): number {
 }
 
 /** Deterministic number in (0, 1) for this seed + post. */
-function unitRandom(seed: string, id: string): number {
+export function unitRandom(seed: string, id: string): number {
   // mulberry32 step over the hash, so similar ids don't give similar numbers
   let t = (hash(`${seed}:${id}`) + 0x6d2b79f5) >>> 0;
   t = Math.imul(t ^ (t >>> 15), t | 1);

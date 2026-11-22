@@ -64,6 +64,8 @@ export function DemandDetailSheet({ demand, onClose }: { demand: DemandCardData;
         <DemandProviderProblems
           providerId={demand.categoryProviderId}
           problemIds={demand.categoryProblemIds}
+          customName={demand.customProviderName}
+          label={demand.postType === "PROMOTE" ? "Offered by" : "Provider wanted"}
           className="mb-3"
         />
 

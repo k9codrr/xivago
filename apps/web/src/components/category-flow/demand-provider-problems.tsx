@@ -10,20 +10,34 @@ import { TagChips } from "@/components/category-flow/chips";
 export function DemandProviderProblems({
   providerId,
   problemIds,
+  customName,
+  label = "Provider wanted",
   className,
 }: {
   providerId?: string | null;
   problemIds?: string[] | null;
+  /** Typed by the poster when the list didn't have their provider type. */
+  customName?: string | null;
+  label?: string;
   className?: string;
 }) {
   const { provider, problems } = describeDemandCategory(providerId, problemIds);
+  if (!provider && customName) {
+    return (
+      <div className={cn("text-xs", className)}>
+        <p className="text-neutral-500">
+          {label}: <span className="font-semibold">{customName}</span>
+        </p>
+      </div>
+    );
+  }
   if (!provider) return null;
   const providerHref = categoryHref(provider.id);
 
   return (
     <div className={cn("space-y-1.5 text-xs", className)}>
       <p className="text-neutral-500">
-        Provider wanted:{" "}
+        {label}:{" "}
         {providerHref ? (
           <Link href={providerHref} className="font-semibold text-brand-600 hover:underline dark:text-brand-400">
             {provider.name}

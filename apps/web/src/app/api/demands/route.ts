@@ -172,6 +172,13 @@ export async function POST(req: NextRequest) {
       if (problem) return apiError(400, "INVALID_TAGS", `"${tag}": ${problem}.`);
     }
 
+    // A typed provider type follows the custom tag rules, and replaces a picked one.
+    const customProviderName = data.customProviderName?.trim().replace(/\s+/g, " ") || null;
+    if (customProviderName) {
+      const problem = customTagError(customProviderName.toLowerCase());
+      if (problem) return apiError(400, "INVALID_PROVIDER", `"${customProviderName}": ${problem.replace(/tags/gi, "names")}.`);
+    }
+
     // Role is optional (the role step is disabled in the post flow); validate it only when sent.
     if (data.postType === "REQUIREMENT" && data.requirementRoleId) {
       const role = await prisma.requirementRole.findFirst({
@@ -241,6 +248,7 @@ export async function POST(req: NextRequest) {
             isPriority: data.isPriority,
             priorityExpiresAt: boostEnd,
             ...category,
+            ...(customProviderName ? { categoryProviderId: null, categoryProblemIds: [], customProviderName } : {}),
             tags,
             selectedTechInputs: data.selectedTechInputs ?? undefined,
             mediaUrls: data.mediaUrls ?? [],

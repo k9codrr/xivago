@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
-import { CARD_FILLS, borderColor, patternStyle, type QrTheme } from "./qr-theme";
+import { CARD_FILLS, borderColor, imageBackground, patternStyle, useCustomImage, type QrTheme } from "./qr-theme";
 
 /** 1x1 transparent GIF -- lets qrcode.react clear the centre modules for the avatar overlay. */
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -46,6 +46,8 @@ export function QrCard({ theme, size, value, avatarUrl, initial, className }: Qr
   const fill = CARD_FILLS[theme.fill];
   const radius = Math.round(size * 0.115);
   const qrValue = value || PLACEHOLDER_VALUE;
+  const customCard = useCustomImage("card");
+  const cardImage = imageBackground(theme.cardImage, "card", customCard);
 
   return (
     <div
@@ -54,7 +56,10 @@ export function QrCard({ theme, size, value, avatarUrl, initial, className }: Qr
         width: size,
         height: size,
         borderRadius: radius,
-        background: `radial-gradient(130% 130% at 100% 100%, ${fill.to} 0%, color-mix(in srgb, ${fill.to} 35%, transparent) 38%, transparent 70%), ${fill.from}`,
+        // An image replaces the colour fill; a soft shade keeps the label and QR readable on it.
+        background: cardImage
+          ? `linear-gradient(160deg, rgba(0,0,0,0.12), rgba(0,0,0,0.42)), ${cardImage}`
+          : `radial-gradient(130% 130% at 100% 100%, ${fill.to} 0%, color-mix(in srgb, ${fill.to} 35%, transparent) 38%, transparent 70%), ${fill.from}`,
         boxShadow: `0 22px 50px -12px rgba(0,0,0,0.75), 0 0 60px -20px ${fill.accent}`,
       }}
     >

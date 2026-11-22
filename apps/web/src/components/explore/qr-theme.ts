@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 
 /* ───────── Patterns (hero background + the halo right behind the QR card) ───────── */
 
@@ -114,6 +114,165 @@ export function borderColor(tone: BorderToneId, fill: CardFillId) {
   return "rgba(255,255,255,0.9)";
 }
 
+/* ───────── Background images (hero and QR card) ───────── */
+
+/** "none", one of the built-in images below, or "custom" (the user's own photo on this device). */
+export type ImageChoice = string;
+export const CUSTOM_IMAGE = "custom";
+
+/** Built-in hero images, drawn with CSS so they're sharp on every screen and cost no download. */
+export const HERO_IMAGES: { id: string; label: string; css: string }[] = [
+  {
+    id: "aurora",
+    label: "Aurora",
+    css: "radial-gradient(120% 70% at 10% 10%, #2dd4bf88, transparent 55%), radial-gradient(90% 60% at 90% 20%, #818cf8aa, transparent 60%), radial-gradient(120% 80% at 50% 110%, #a855f777, transparent 60%), linear-gradient(180deg, #070b1a, #0c1530)",
+  },
+  {
+    id: "sunset",
+    label: "Sunset",
+    css: "radial-gradient(80% 50% at 50% 95%, #fb923caa, transparent 70%), radial-gradient(120% 70% at 20% 0%, #be185d99, transparent 60%), linear-gradient(180deg, #2a0f2e 0%, #5b1a3a 45%, #a3402a 100%)",
+  },
+  {
+    id: "nebula",
+    label: "Nebula",
+    css: "radial-gradient(40% 30% at 70% 30%, #f0abfc66, transparent 70%), radial-gradient(60% 45% at 25% 65%, #6366f188, transparent 70%), radial-gradient(1.5px 1.5px at 20% 20%, #fff, transparent), radial-gradient(1px 1px at 80% 70%, #fff, transparent), radial-gradient(1px 1px at 55% 15%, #fff, transparent), linear-gradient(160deg, #050510, #160a2b)",
+  },
+  {
+    id: "mesh",
+    label: "Mesh",
+    css: "radial-gradient(60% 60% at 0% 0%, #22d3ee99, transparent 60%), radial-gradient(60% 60% at 100% 0%, #f472b699, transparent 60%), radial-gradient(60% 60% at 100% 100%, #facc1577, transparent 60%), radial-gradient(60% 60% at 0% 100%, #4ade8077, transparent 60%), #111827",
+  },
+  {
+    id: "dunes",
+    label: "Dunes",
+    css: "radial-gradient(140% 50% at 50% 115%, #78350f, transparent 60%), radial-gradient(140% 45% at 30% 95%, #b45309cc, transparent 60%), linear-gradient(180deg, #1e1b4b 0%, #7c2d12 70%, #d97706 100%)",
+  },
+  {
+    id: "holo",
+    label: "Holo",
+    css: "conic-gradient(from 200deg at 60% 40%, #67e8f9, #a78bfa, #f9a8d4, #fde68a, #67e8f9)",
+  },
+];
+
+/** Built-in card images: rich enough to look like a photo, dark enough for the QR and label. */
+export const CARD_IMAGES: { id: string; label: string; css: string }[] = [
+  {
+    id: "marble",
+    label: "Marble",
+    css: "radial-gradient(80% 60% at 20% 20%, #ffffff33, transparent 60%), repeating-linear-gradient(115deg, #ffffff0d 0 2px, transparent 2px 22px), linear-gradient(135deg, #1f2937, #4b5563 60%, #111827)",
+  },
+  {
+    id: "carbon",
+    label: "Carbon",
+    css: "repeating-linear-gradient(45deg, #ffffff0a 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #0000004d 0 4px, transparent 4px 8px), linear-gradient(160deg, #18181b, #3f3f46)",
+  },
+  {
+    id: "gold",
+    label: "Gold",
+    css: "radial-gradient(100% 80% at 20% 10%, #fde68a, transparent 55%), linear-gradient(135deg, #78350f, #b45309 40%, #f59e0b 70%, #78350f)",
+  },
+  {
+    id: "ocean",
+    label: "Ocean",
+    css: "radial-gradient(90% 70% at 80% 90%, #22d3ee88, transparent 60%), radial-gradient(70% 60% at 10% 10%, #1e3a8a, transparent 70%), linear-gradient(160deg, #0c4a6e, #0e7490)",
+  },
+  {
+    id: "flame",
+    label: "Flame",
+    css: "radial-gradient(90% 70% at 50% 110%, #facc15, transparent 60%), radial-gradient(90% 70% at 30% 70%, #f97316cc, transparent 60%), linear-gradient(180deg, #450a0a, #b91c1c)",
+  },
+  {
+    id: "prism",
+    label: "Prism",
+    css: "conic-gradient(from 120deg at 30% 30%, #a78bfa, #38bdf8, #34d399, #fbbf24, #f472b6, #a78bfa)",
+  },
+];
+
+/* Custom photos live in their own localStorage keys (downscaled JPEG data URLs) so the
+   theme stays tiny, and every QrCard / hero on the page re-renders when one changes. */
+const CUSTOM_KEYS = { hero: "xivago:qr-hero-image", card: "xivago:qr-card-image" } as const;
+export type ImageSlot = keyof typeof CUSTOM_KEYS;
+const CUSTOM_EVENT = "xivago:qr-image-change";
+const customCache: Record<ImageSlot, string | null | undefined> = { hero: undefined, card: undefined };
+
+function readCustom(slot: ImageSlot): string | null {
+  const cached = customCache[slot];
+  if (cached !== undefined) return cached;
+  let value: string | null = null;
+  try {
+    value = window.localStorage.getItem(CUSTOM_KEYS[slot]);
+  } catch {
+    value = null;
+  }
+  customCache[slot] = value;
+  return value;
+}
+
+function subscribeCustom(cb: () => void) {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === CUSTOM_KEYS.hero || e.key === CUSTOM_KEYS.card) {
+      customCache.hero = undefined;
+      customCache.card = undefined;
+      cb();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(CUSTOM_EVENT, cb);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(CUSTOM_EVENT, cb);
+  };
+}
+
+/** The user's own photo for the hero or the card, or null. */
+export function useCustomImage(slot: ImageSlot): string | null {
+  return useSyncExternalStore(subscribeCustom, () => readCustom(slot), () => null);
+}
+
+/** Saves (or with null, removes) the user's photo. Returns false when the device is out of storage. */
+export function setCustomImage(slot: ImageSlot, dataUrl: string | null): boolean {
+  try {
+    if (dataUrl) window.localStorage.setItem(CUSTOM_KEYS[slot], dataUrl);
+    else window.localStorage.removeItem(CUSTOM_KEYS[slot]);
+  } catch {
+    return false;
+  }
+  customCache[slot] = dataUrl;
+  window.dispatchEvent(new Event(CUSTOM_EVENT));
+  return true;
+}
+
+/** Downscales a picked photo to a JPEG data URL that fits comfortably in localStorage. */
+export async function imageFileToDataUrl(file: File, maxEdge: number): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not read that image"));
+      el.src = url;
+    });
+    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not read that image");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** CSS `background` for an image choice, or null for "none" / a missing custom photo. */
+export function imageBackground(choice: ImageChoice | undefined, slot: ImageSlot, custom: string | null): string | null {
+  if (!choice || choice === "none") return null;
+  if (choice === CUSTOM_IMAGE) return custom ? `center / cover no-repeat url("${custom}")` : null;
+  const list = slot === "hero" ? HERO_IMAGES : CARD_IMAGES;
+  return list.find((i) => i.id === choice)?.css ?? null;
+}
+
 /* ───────── Theme + presets ───────── */
 
 export interface QrTheme {
@@ -124,6 +283,10 @@ export interface QrTheme {
   borderTone: BorderToneId;
   /** true: big "Scan & Sell" art over a dimmed QR; false: clean, scannable QR plate. */
   label: boolean;
+  /** Image behind the whole hero (over the backdrop colour). "none" keeps the plain backdrop. */
+  heroImage?: ImageChoice;
+  /** Image on the QR card itself, replacing its colour fill. */
+  cardImage?: ImageChoice;
 }
 
 export const PRESETS: { id: string; label: string; theme: QrTheme }[] = [
@@ -133,6 +296,9 @@ export const PRESETS: { id: string; label: string; theme: QrTheme }[] = [
   { id: "sunset", label: "Sunset", theme: { backdrop: "ember", pattern: "diagonal", fill: "rose", border: "full", borderTone: "gold", label: true } },
   { id: "blueprint", label: "Blueprint", theme: { backdrop: "ocean", pattern: "grid", fill: "sky", border: "rim", borderTone: "white", label: true } },
   { id: "studio", label: "Studio", theme: { backdrop: "midnight", pattern: "dots", fill: "mono", border: "rim", borderTone: "white", label: false } },
+  { id: "aurora", label: "Aurora", theme: { backdrop: "midnight", pattern: "none", fill: "teal", border: "rim", borderTone: "white", label: true, heroImage: "aurora", cardImage: "ocean" } },
+  { id: "golden", label: "Golden hour", theme: { backdrop: "ember", pattern: "none", fill: "amber", border: "full", borderTone: "gold", label: true, heroImage: "sunset", cardImage: "gold" } },
+  { id: "cosmos", label: "Cosmos", theme: { backdrop: "plum", pattern: "none", fill: "violet", border: "rim", borderTone: "accent", label: true, heroImage: "nebula", cardImage: "prism" } },
 ];
 
 export const DEFAULT_THEME: QrTheme = PRESETS[0]!.theme;
@@ -147,6 +313,10 @@ function sanitize(raw: unknown): QrTheme {
   if (!BORDER_STYLES.some((b) => b.id === t.border)) t.border = DEFAULT_THEME.border;
   if (!BORDER_TONES.some((b) => b.id === t.borderTone)) t.borderTone = DEFAULT_THEME.borderTone;
   t.label = typeof t.label === "boolean" ? t.label : DEFAULT_THEME.label;
+  const validImage = (v: unknown, list: { id: string }[]) =>
+    typeof v === "string" && (v === "none" || v === CUSTOM_IMAGE || list.some((i) => i.id === v)) ? v : "none";
+  t.heroImage = validImage(t.heroImage, HERO_IMAGES);
+  t.cardImage = validImage(t.cardImage, CARD_IMAGES);
   return t;
 }
 

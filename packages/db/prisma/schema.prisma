@@ -423,6 +423,9 @@ model Demand {
   // Optional finer levels under categorySubId. Older demands only have the sub id.
   categoryProviderId String?
   categoryProblemIds String[] @default([])
+  // Typed by the poster when their provider type isn't in the list ("Custom" in
+  // the "Who you are" / "Who should solve it" step). Set instead of categoryProviderId.
+  customProviderName String?  @db.VarChar(40)
   // Up to 5 tags from the category workbook, picked when posting.
   tags               String[] @default([])
   selectedTechInputs Json?

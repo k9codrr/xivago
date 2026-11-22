@@ -8,7 +8,7 @@ import { haptic } from "@/lib/haptics";
 import { InlineQrScanner } from "@/components/inline-qr-scanner";
 import { CardHalo, QrCard } from "./qr-card";
 import { QrThemeSheet } from "./qr-theme-sheet";
-import { BACKDROPS, patternStyle, useQrTheme } from "./qr-theme";
+import { BACKDROPS, imageBackground, patternStyle, useCustomImage, useQrTheme } from "./qr-theme";
 
 /* ───────── Promo designs that rotate under the card ───────── */
 
@@ -44,6 +44,8 @@ export function ExploreHero({ header, profileUrl, avatarUrl, initial }: ExploreH
   const [scannerOpen, setScannerOpen] = useState(false);
   const qrTileRef = useRef<HTMLDivElement>(null);
   const backdrop = BACKDROPS[theme.backdrop];
+  const customHero = useCustomImage("hero");
+  const heroImage = imageBackground(theme.heroImage, "hero", customHero);
 
   // Scrolling the scanner (mostly) off-screen flips the tile back to the QR and stops the camera.
   useEffect(() => {
@@ -72,7 +74,14 @@ export function ExploreHero({ header, profileUrl, avatarUrl, initial }: ExploreH
       className="relative overflow-hidden rounded-b-[34px] pb-6 shadow-[0_1px_0_rgba(255,255,255,0.06)]"
       style={{ background: backdrop.base }}
     >
-      {/* Backdrop: pattern, top vignette, soft glow + lighter floor like a stage */}
+      {/* Backdrop: optional image, pattern, top vignette, soft glow + lighter floor like a stage */}
+      {heroImage && (
+        <>
+          <div aria-hidden className="absolute inset-0" style={{ background: heroImage }} />
+          {/* Dims the image so the header, title and buttons stay readable */}
+          <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.45)_0%,rgba(0,0,0,0.15)_40%,rgba(0,0,0,0.55)_100%)]" />
+        </>
+      )}
       <div aria-hidden className="absolute inset-0" style={patternStyle(theme.pattern, backdrop.ink)} />
       <div
         aria-hidden

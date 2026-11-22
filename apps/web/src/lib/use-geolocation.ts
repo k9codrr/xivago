@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { Geolocation } from "@capacitor/geolocation";
-import { getRememberedPermission, rememberPermission } from "@/lib/permissions";
+import { getRememberedPermission, rememberPermission, syncPermission } from "@/lib/permissions";
 
 export interface GeoLocationState {
   lat: number | null;
@@ -137,21 +137,36 @@ async function fetchFix(silent: boolean): Promise<{ lat: number; lng: number } |
 
   // Native shell: the OS keeps the grant; only prompt when it hasn't been answered.
   if (isNative()) {
+    let granted = false;
     try {
       let perm = await Geolocation.checkPermissions();
-      if (perm.location !== "granted" && perm.coarseLocation !== "granted") {
+      granted = perm.location === "granted" || perm.coarseLocation === "granted";
+      if (!granted) {
         if (silent) return null;
         perm = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
+        granted = perm.location === "granted" || perm.coarseLocation === "granted";
       }
-      if (perm.location === "granted" || perm.coarseLocation === "granted") {
-        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 5 * 60 * 1000 });
-        save(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-        return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      if (!granted) {
+        fail("Location permission was denied. Enable location in device settings.", true);
+        return null;
       }
-      fail("Location permission was denied. Enable location in device settings.", true);
-      return null;
-    } catch {
-      // fall through to the browser API
+      rememberPermission("location", "granted");
+      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 5 * 60 * 1000 });
+      save(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    } catch (err) {
+      // Already allowed but no fix (GPS off, timeout): say so. Falling back to the
+      // WebView's own geolocation here would show the web "allow location?" prompt
+      // again on every launch, on top of the OS grant.
+      if (granted) {
+        if (!silent) fail("Could not get your location. Check that location is turned on.", false);
+        return null;
+      }
+      // Plugin missing in an older app build: fall through to the browser API.
+      if (!/not implemented|unimplemented|not available/i.test(String(err))) {
+        if (!silent) fail("Could not get your location. Check that location is turned on.", false);
+        return null;
+      }
     }
   }
 
@@ -193,9 +208,17 @@ export function getRememberedLocation(): { lat: number; lng: number } | null {
 export function useGeolocation() {
   const current = useSyncExternalStore(subscribe, snapshot, () => EMPTY);
 
-  // Previously allowed → keep the fix fresh without a prompt.
+  // Previously allowed → keep the fix fresh without a prompt. Also picks up a grant
+  // the browser still holds after our own memory was cleared (storage wiped, new install).
   useEffect(() => {
-    if (getRememberedPermission("location") === "granted") void request({ silent: true });
+    if (getRememberedPermission("location") === "granted") {
+      void request({ silent: true });
+      return;
+    }
+    if (getRememberedPermission("location") === "denied") return;
+    void syncPermission("location").then((state) => {
+      if (state === "granted") void request({ silent: true });
+    });
   }, []);
 
   const requestLocation = useCallback(() => request(), []);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,36 @@ import { cn } from "@/lib/utils";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { NearbyForYou } from "@/components/nearby-for-you";
 import { ScrollToTop } from "@/components/scroll-to-top";
+import { ForYouStrip, newVisitSeed } from "@/components/for-you-strip";
+import { RecommendedPeople } from "@/components/explore/recommended-people";
+
+/** What gets mixed in between feed posts. */
+type FeedInsert = "demands" | "nearby-people" | "people";
+/** Order of the mixed-in rows: offers & requests rows, with people suggestions between them. */
+const INSERT_ORDER: FeedInsert[] = ["demands", "nearby-people", "demands", "people", "demands"];
+
+/**
+ * Where the mixed-in rows go: the first after 3-5 posts, then one every 6-9
+ * posts, at random but fixed for this visit (same seed → same spots, so rows
+ * don't jump while more posts load).
+ */
+function insertPositions(seed: string, count: number): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  const rand = () => {
+    h = (h + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(h ^ (h >>> 15), h | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out: number[] = [];
+  let at = 3 + Math.floor(rand() * 3);
+  for (let i = 0; i < count; i++) {
+    out.push(at);
+    at += 6 + Math.floor(rand() * 4);
+  }
+  return out;
+}
 
 interface FeedPage {
   posts: ForumPost[];
@@ -79,6 +109,12 @@ function Forum() {
   const [near, setNear] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const { requestLocation } = useGeolocation();
+  // New per visit: decides where the "for you" rows sit and what they pick.
+  const [visitSeed] = useState(newVisitSeed);
+  const inserts = useMemo(() => {
+    const positions = insertPositions(visitSeed, INSERT_ORDER.length);
+    return new Map(positions.map((pos, i) => [pos, { kind: INSERT_ORDER[i]!, index: i }]));
+  }, [visitSeed]);
 
   // Kept in the URL so coming back from a thread lands on the same tab and view.
   const tab: ForumTab = searchParams.get("tab") === "communities" ? "communities" : "threads";
@@ -239,8 +275,6 @@ function Forum() {
         </div>
       ) : (
         <>
-          {!near && <NearbyForYou className="border-b border-neutral-200 dark:border-neutral-800" />}
-
           <div className="flex items-center justify-between gap-2 border-b border-neutral-100 px-4 py-2 dark:border-neutral-800/70">
             <ForumFilterMenu
               sort={sort}
@@ -265,9 +299,29 @@ function Forum() {
 
           {/* Hairline-separated feed — no cards */}
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            {posts.map((post) => (
-              <ForumPostCard key={post.id} post={post} onUpdate={updatePost} onRemove={removePost} />
-            ))}
+            {posts.map((post, i) => {
+              // Recommendations and people suggestions sit between posts, not on top.
+              const insert = session?.user ? inserts.get(i) : undefined;
+              return (
+                <Fragment key={post.id}>
+                  {insert?.kind === "demands" && (
+                    <ForYouStrip
+                      kind="demands"
+                      seed={`${visitSeed}-${insert.index}`}
+                      title={insert.index === 0 ? "Offers & requests for you" : "More offers & requests"}
+                      subtitle="Picked from your niches, activity and location"
+                    />
+                  )}
+                  {insert?.kind === "nearby-people" && <NearbyForYou show="people" />}
+                  {insert?.kind === "people" && (
+                    <div className="pb-3 [&>section]:mt-3">
+                      <RecommendedPeople signedIn />
+                    </div>
+                  )}
+                  <ForumPostCard post={post} onUpdate={updatePost} onRemove={removePost} />
+                </Fragment>
+              );
+            })}
             <div ref={sentinelRef} className="flex justify-center py-4">
               {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />}
             </div>

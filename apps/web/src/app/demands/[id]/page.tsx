@@ -228,6 +228,8 @@ export default async function DemandDetailPage({ params }: PageProps) {
                 <DemandProviderProblems
                   providerId={demand.categoryProviderId}
                   problemIds={demand.categoryProblemIds}
+                  customName={demand.customProviderName}
+                  label={isOffer ? "Offered by" : "Provider wanted"}
                   className="mt-3"
                 />
 
