@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma, applyCreditDelta, InsufficientCreditsError } from "@/lib/db";
 import { getOptionalUser, requireUser, UnauthorizedError, ForbiddenError } from "@/lib/guards";
 import { apiError, apiValidationError } from "@/lib/api-response";
-import { demandCreateSchema, demandFeedQuerySchema } from "@/lib/validation/demand";
+import { demandCreateSchema, demandFeedQuerySchema, postLifetimeEnd } from "@/lib/validation/demand";
+import { DEFAULT_SERVICE_RADIUS_KM, LOCATION_FREE_AREA_TYPES } from "@/lib/service-area";
+import { FEATURED_CANDIDATES, FEATURED_SLOTS, pickFeatured } from "@/lib/featured-rotation";
 import { DEMAND_CARD_SELECT, HIDDEN_FROM_FEED } from "@/lib/demand-access";
 import { maskDemandAuthor } from "@/lib/demand-privacy";
 import { haversineKm, getBoundingBox } from "@/lib/geo";
-import { DEMAND_POST_CREDIT_COST } from "@/lib/slot-pricing";
+import { DEMAND_POST_CREDIT_COST, MAX_BID_SLOTS } from "@/lib/slot-pricing";
 import { notifyFollowersOfDemand } from "@/lib/notifications";
 import { demandCategoryWhere, resolveDemandCategory } from "@/lib/category-selection";
 import { isKnownTag, normalizeTag } from "@/lib/category-tags.server";
@@ -19,11 +22,12 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const parsed = demandFeedQuerySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) return apiValidationError(parsed.error);
-  const { cursor, limit, q, budgetMin, budgetMax, category, subCategory, provider, problem, tags, lat, lng, radiusKm = 25, timeFilter } = parsed.data;
+  const { cursor, limit, q, budgetMin, budgetMax, category, subCategory, provider, problem, tags, lat, lng, radiusKm = 25, timeFilter, seed } = parsed.data;
 
   const viewer = await getOptionalUser(); // the feed is public, but only slot holders see who posted
-  // Featured posts sort first (isPriority desc); drop the ones whose paid days ran out.
+  // Drop featured flags whose paid days ran out.
   await expireStaleBoosts();
+  const now = new Date();
 
   // Distance filtering: only active if lat/lng are supplied AND radiusKm is not explicitly "all"
   const isGeoFiltered = lat != null && lng != null && radiusKm !== "all";
@@ -38,52 +42,106 @@ export async function GET(req: NextRequest) {
     createdAtFilter = { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) };
   }
 
-  const rawDemands = await prisma.demand.findMany({
-    where: {
-      status: { notIn: HIDDEN_FROM_FEED },
-      timelineEnd: { gt: new Date() },
-      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
-      ...demandCategoryWhere({ category, subCategory, provider, problem, tags }),
+  const where: Prisma.DemandWhereInput = {
+    AND: [
+      {
+        status: { notIn: HIDDEN_FROM_FEED },
+        timelineEnd: { gt: now },
+        ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+        ...(q ? { summary: { contains: q, mode: "insensitive" } } : {}),
+        ...(budgetMin != null ? { budgetMax: { gte: budgetMin } } : {}),
+        ...(budgetMax != null ? { budgetMin: { lte: budgetMax } } : {}),
+      },
+      demandCategoryWhere({ category, subCategory, provider, problem, tags }),
+      // Offers available all over India or online match every distance.
       ...(bbox
-        ? {
-            lat: { gte: bbox.minLat, lte: bbox.maxLat },
-            lng: { gte: bbox.minLng, lte: bbox.maxLng },
-          }
-        : {}),
-      ...(q ? { summary: { contains: q, mode: "insensitive" } } : {}),
-      ...(budgetMin != null ? { budgetMax: { gte: budgetMin } } : {}),
-      ...(budgetMax != null ? { budgetMin: { lte: budgetMax } } : {}),
-    },
+        ? [
+            {
+              OR: [
+                { lat: { gte: bbox.minLat, lte: bbox.maxLat }, lng: { gte: bbox.minLng, lte: bbox.maxLng } },
+                { serviceAreaType: { in: LOCATION_FREE_AREA_TYPES } },
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+
+  /** Exact distance check; location-free offers always pass. */
+  function withinRadius<T extends { lat: number | null; lng: number | null; serviceAreaType?: string | null }>(d: T) {
+    if (!isGeoFiltered) return true;
+    if (d.serviceAreaType && (LOCATION_FREE_AREA_TYPES as string[]).includes(d.serviceAreaType)) return true;
+    return d.lat != null && d.lng != null && haversineKm(lat, lng, d.lat, d.lng) <= numericRadius;
+  }
+  function withDistance<T extends { lat: number | null; lng: number | null }>(d: T) {
+    if (lat == null || lng == null || d.lat == null || d.lng == null) return d;
+    return { ...d, distanceKm: Math.round(haversineKm(lat, lng, d.lat, d.lng) * 10) / 10 };
+  }
+
+  // Featured rotation (the "All" feed sends a fresh seed per visit): at most
+  // FEATURED_SLOTS live featured posts on top, picked by a weighted shuffle,
+  // then everything else newest first. Without a seed: featured first, as before.
+  let featuredIds: string[] = [];
+  if (seed) {
+    const candidates = await prisma.demand.findMany({
+      where: { AND: [where, { isPriority: true, priorityExpiresAt: { gt: now } }] },
+      select: {
+        id: true,
+        createdAt: true,
+        priorityExpiresAt: true,
+        lat: true,
+        lng: true,
+        serviceAreaType: true,
+        _count: { select: { engagements: { where: { kind: "VIEW" } } } },
+      },
+      orderBy: { priorityExpiresAt: "asc" },
+      take: FEATURED_CANDIDATES,
+    });
+    featuredIds = pickFeatured(
+      candidates.filter(withinRadius).map((c) => ({
+        id: c.id,
+        createdAt: c.createdAt,
+        priorityExpiresAt: c.priorityExpiresAt,
+        views: c._count.engagements,
+        distanceKm:
+          lat != null && lng != null && c.lat != null && c.lng != null ? haversineKm(lat, lng, c.lat, c.lng) : null,
+      })),
+      seed,
+      FEATURED_SLOTS,
+      now.getTime(),
+    );
+  }
+
+  const featured =
+    seed && !cursor && featuredIds.length > 0
+      ? (await prisma.demand.findMany({ where: { id: { in: featuredIds } }, select: DEMAND_CARD_SELECT })).sort(
+          (a, b) => featuredIds.indexOf(a.id) - featuredIds.indexOf(b.id),
+        )
+      : [];
+
+  const rawDemands = await prisma.demand.findMany({
+    where: featuredIds.length > 0 ? { AND: [where, { id: { notIn: featuredIds } }] } : where,
     select: DEMAND_CARD_SELECT,
-    orderBy: [{ isPriority: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    orderBy: seed ? [{ createdAt: "desc" }, { id: "desc" }] : [{ isPriority: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     take: isGeoFiltered ? limit * 2 + 1 : limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  // If geo-filtered, apply exact haversine distance check and attach distance
-  let filtered = rawDemands;
-  if (isGeoFiltered) {
-    filtered = rawDemands
-      .filter((d) => {
-        if (d.lat == null || d.lng == null) return false;
-        const dist = haversineKm(lat, lng, d.lat, d.lng);
-        return dist <= numericRadius;
-      })
-      .map((d) => {
-        const dist = haversineKm(lat, lng, d.lat!, d.lng!);
-        return {
-          ...d,
-          distanceKm: Math.round(dist * 10) / 10,
-        };
-      });
-  }
+  const filtered = rawDemands.filter(withinRadius);
+  const hasMore = filtered.length > limit || (isGeoFiltered && rawDemands.length > limit * 2);
+  const page = filtered.slice(0, limit);
+  const nextCursor = hasMore ? (filtered.length > limit ? page[page.length - 1] : rawDemands[rawDemands.length - 1])?.id ?? null : null;
 
-  const hasMore = filtered.length > limit;
-  const page = hasMore ? filtered.slice(0, limit) : filtered;
+  const out = [
+    ...featured.map((d) => withDistance(d)),
+    // In the rotating feed only the lifted posts carry the Featured look; the
+    // rest of the featured posts sit in time order and get their turn next visit.
+    ...page.map((d) => withDistance(seed ? { ...d, isPriority: false } : d)),
+  ];
 
   return NextResponse.json({
-    demands: page.map((d) => maskDemandAuthor(d, viewer)),
-    nextCursor: hasMore ? page[page.length - 1]?.id ?? null : null,
+    demands: out.map((d) => maskDemandAuthor(d, viewer)),
+    nextCursor,
   });
 }
 
@@ -137,8 +195,11 @@ export async function POST(req: NextRequest) {
     }
     const boostCredits = boost ? boost.pricePerDay * boostDays : 0;
     const boostEnd = boost ? boostEndsAt(boostDays, null) : null;
-    // The post stays up for every featured day it was paid for.
-    const timelineEnd = boostEnd && boostEnd > data.timelineEnd ? boostEnd : data.timelineEnd;
+    // Every paid post runs 7 days (a request can pick less), and always covers
+    // every featured day it paid for: 3 featured days = featured 3, normal 4.
+    const isOffer = data.postType === "PROMOTE";
+    const timelineEnd = postLifetimeEnd({ requested: isOffer ? null : data.timelineEnd, boostEnd });
+    const areaType = isOffer ? data.serviceAreaType ?? null : null;
 
     const totalCreditsRequired = DEMAND_POST_CREDIT_COST + boostCredits;
     const currentBalance = dbUser?.creditBalance ?? 0;
@@ -167,10 +228,16 @@ export async function POST(req: NextRequest) {
             budgetMin: data.budget ?? null,
             budgetMax: data.budget ?? null,
             timelineEnd,
-            completionTimeline: data.completionTimeline,
-            completionDate: data.completionTimeline === "DATE" ? data.completionDate ?? null : null,
+            completionTimeline: isOffer ? null : data.completionTimeline ?? null,
+            completionDate: !isOffer && data.completionTimeline === "DATE" ? data.completionDate ?? null : null,
+            priceUnit: isOffer ? data.priceUnit ?? null : null,
+            serviceAreaType: areaType,
+            serviceAreas: areaType === "REGIONS" ? data.serviceAreas : undefined,
+            serviceRadiusKm: areaType === "NEARBY" ? data.serviceRadiusKm ?? DEFAULT_SERVICE_RADIUS_KM : null,
+            serviceOnline: areaType === "NEARBY" || areaType === "REGIONS" ? data.serviceOnline : areaType === "ONLINE",
             shareContact: data.shareContact,
-            maxSlots: data.maxSlots ?? 3,
+            // Offers have no response-spot picker: anyone can connect, up to the max.
+            maxSlots: isOffer ? MAX_BID_SLOTS : data.maxSlots ?? 3,
             isPriority: data.isPriority,
             priorityExpiresAt: boostEnd,
             ...category,

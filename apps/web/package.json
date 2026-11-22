@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/categories.test.ts src/lib/category-selection.test.ts src/lib/category-flow-search.test.ts src/lib/category-tags.test.ts src/lib/demand-privacy.test.ts src/lib/validation/demand.test.ts src/lib/custom-tags.test.ts src/lib/demand-type.test.ts src/lib/validation/tpin.test.ts src/lib/boost-shared.test.ts",
+    "test": "tsx --test src/lib/categories.test.ts src/lib/category-selection.test.ts src/lib/category-flow-search.test.ts src/lib/category-tags.test.ts src/lib/demand-privacy.test.ts src/lib/validation/demand.test.ts src/lib/custom-tags.test.ts src/lib/demand-type.test.ts src/lib/validation/tpin.test.ts src/lib/boost-shared.test.ts src/lib/featured-rotation.test.ts",
     "clean": "rm -rf .next node_modules .turbo"
   },
   "dependencies": {

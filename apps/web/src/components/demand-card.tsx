@@ -186,6 +186,8 @@ import type { CardLayout } from "@/lib/card-layout";
 import { CountdownBadge } from "@/components/countdown-badge";
 import { PriorityBadge } from "@/components/priority-badge";
 import { formatBudgetRange } from "@/lib/money";
+import { withPriceUnit } from "@/lib/price-units";
+import { serviceAreaLabel } from "@/lib/service-area";
 import { cn } from "@/lib/utils";
 import {
   FamilyDrawerAnimatedContent,
@@ -248,6 +250,12 @@ export interface DemandCardData {
   lng?: number | null;
   /** Place picked when posting (e.g. "Koramangala, Bengaluru"). */
   locationName?: string | null;
+  /** Offers: how the price is charged and where the service is available. */
+  priceUnit?: string | null;
+  serviceAreaType?: string | null;
+  serviceAreas?: unknown;
+  serviceRadiusKm?: number | null;
+  serviceOnline?: boolean | null;
   distanceKm?: number | null;
   /** The viewer has no slot on this demand, so the server sent no identity in `author`. */
   authorHidden?: boolean;
@@ -291,7 +299,7 @@ function fallbackGradient(id: string): string {
 
 /* ══════════════════════ COMPACT CARD (2-col grid) ══════════════════════ */
 function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen?: () => void }) {
-  const budgetLabel = formatBudgetRange(demand.budgetMin, demand.budgetMax);
+  const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
   const cover = demand.mediaUrls?.[0];
@@ -422,17 +430,19 @@ function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen?: () =
 
 /* ══════════════════════ PROFILE CARD (2-col grid, photo + footer) ══════════════════════ */
 function ProfileCard({ demand }: { demand: DemandCardData }) {
-  const budgetLabel = formatBudgetRange(demand.budgetMin, demand.budgetMax);
+  const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
   const cover = demand.mediaUrls?.[0];
   const maxSlots = demand.maxSlots ?? 3;
   const typeLabel = demandTypeLabel(demand);
   const subtitle = demand.subCategoryName ?? demand.categoryName ?? typeLabel;
+  const area = demand.serviceAreaType && demand.serviceAreaType !== "NEARBY" ? serviceAreaLabel(demand, 1) : null;
   const place =
-    demand.distanceKm != null
+    area ??
+    (demand.distanceKm != null
       ? `${demand.distanceKm} km away${demand.locationName ? ` · ${demand.locationName}` : ""}`
-      : (demand.locationName ?? demand.author.location);
+      : (demand.locationName ?? demand.author.location));
   const slotPrice = calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees;
 
   return (
@@ -545,7 +555,7 @@ function AuthorLink({ demand, className, children }: { demand: DemandCardData; c
 
 /* ══════════════════════ FULL DETAIL SHEET ══════════════════════ */
 function DetailSheet({ demand, onClose }: { demand: DemandCardData; onClose?: () => void }) {
-  const budgetLabel = formatBudgetRange(demand.budgetMin, demand.budgetMax);
+  const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
   const { provider, problems } = describeDemandCategory(demand.categoryProviderId, demand.categoryProblemIds);
@@ -649,10 +659,14 @@ function DetailSheet({ demand, onClose }: { demand: DemandCardData; onClose?: ()
                 <span className="text-[#EBEBF5]/60">{budgetLabel}</span>
               </div>
             )}
-            {(demand.locationName || demand.author.location) && (
+            {(serviceAreaLabel(demand) || demand.locationName || demand.author.location) && (
               <div className="flex items-center justify-between gap-4 px-4 py-3 text-[15px]">
-                <span className="flex shrink-0 items-center gap-2.5 text-white"><MapPin className="h-4 w-4 text-[#0A84FF]" /> Location</span>
-                <span className="truncate text-[#EBEBF5]/60">{demand.locationName ?? demand.author.location}</span>
+                <span className="flex shrink-0 items-center gap-2.5 text-white">
+                  <MapPin className="h-4 w-4 text-[#0A84FF]" /> {serviceAreaLabel(demand) ? "Serves" : "Location"}
+                </span>
+                <span className="truncate text-[#EBEBF5]/60">
+                  {serviceAreaLabel(demand, 3) ?? demand.locationName ?? demand.author.location}
+                </span>
               </div>
             )}
             {demand.createdAt && (

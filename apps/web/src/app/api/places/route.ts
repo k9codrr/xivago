@@ -6,6 +6,7 @@ import { apiError, apiValidationError } from "@/lib/api-response";
 /**
  * GET /api/places?q=kora[&lat=..&lng=..]      → place suggestions as you type
  * GET /api/places?lat=..&lng=..&reverse=1      → the place at a point ("use current location")
+ * GET /api/places?q=pun&scope=region           → Indian states, districts and cities only
  *
  * Backed by Photon (photon.komoot.io, OpenStreetMap data): free, no key, built
  * for type-ahead. Proxied so the app shell / browsers don't need CORS and we
@@ -17,6 +18,8 @@ const schema = z.object({
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   reverse: z.string().optional(),
+  // "region": only states, districts and cities inside India (service-area picker).
+  scope: z.enum(["region"]).optional(),
 });
 
 interface PhotonFeature {
@@ -48,6 +51,22 @@ interface Place {
   lat: number;
   lng: number;
   kind: string;
+  /** Set with scope=region: what kind of area this is, and its state. */
+  areaKind?: "STATE" | "DISTRICT" | "CITY";
+  state?: string;
+}
+
+/** India's bounding box (min lon, min lat, max lon, max lat). */
+const INDIA_BBOX = "68.1,6.5,97.5,35.7";
+
+function areaKindOf(f: PhotonFeature): "STATE" | "DISTRICT" | "CITY" | null {
+  const { type, osm_value: value, name = "" } = f.properties;
+  if (type === "state") return "STATE";
+  // Districts are admin "county" areas; skip sub-district/tehsil divisions.
+  if (type === "county" && !/sub-?district|tehsil|taluk|mandal|block|gewog/i.test(name)) return "DISTRICT";
+  // Cities and towns only — not villages or suburbs.
+  if (type === "city" && (value === "city" || value === "town")) return "CITY";
+  return null;
 }
 
 function shape(f: PhotonFeature): Place | null {
@@ -77,7 +96,7 @@ export async function GET(req: NextRequest) {
     await requireUser();
     const parsed = schema.safeParse(Object.fromEntries(new URL(req.url).searchParams));
     if (!parsed.success) return apiValidationError(parsed.error);
-    const { q, lat, lng, reverse } = parsed.data;
+    const { q, lat, lng, reverse, scope } = parsed.data;
 
     let url: string;
     if (reverse && lat != null && lng != null) {
@@ -85,7 +104,11 @@ export async function GET(req: NextRequest) {
     } else {
       if (!q || q.length < 2) return NextResponse.json({ places: [] });
       const bias = lat != null && lng != null ? `&lat=${lat.toFixed(3)}&lon=${lng.toFixed(3)}` : "";
-      url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10&lang=en${bias}`;
+      url =
+        scope === "region"
+          ? `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=15&lang=en&bbox=${INDIA_BBOX}` +
+            "&layer=state&layer=county&layer=district&layer=city"
+          : `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10&lang=en${bias}`;
     }
 
     const res = await fetch(url, {
@@ -97,8 +120,16 @@ export async function GET(req: NextRequest) {
     const data = (await res.json()) as { features?: PhotonFeature[] };
 
     const seen = new Set<string>();
-    const places = (data.features ?? [])
-      .map(shape)
+    const features = (data.features ?? []).filter(
+      (f) => scope !== "region" || (f.properties.countrycode === "IN" && areaKindOf(f) != null),
+    );
+    const places = features
+      .map((f) => {
+        const p = shape(f);
+        if (!p || scope !== "region") return p;
+        const areaKind = areaKindOf(f)!;
+        return { ...p, areaKind, state: areaKind === "STATE" ? undefined : f.properties.state };
+      })
       .filter((p): p is Place => {
         if (!p) return false;
         const key = `${p.name}|${p.secondary}`;

@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2, SearchX } from "lucide-react";
 import { DemandCard, type DemandCardData } from "@/components/demand-card";
-import { demandsFeedQueryOptions, type FeedFilters } from "@/lib/demands-feed";
+import { demandsFeedQueryOptions, newFeedSeed, type FeedFilters } from "@/lib/demands-feed";
 import { useCardLayout } from "@/lib/card-layout";
 
 export function FeedList({ filters = {} }: { filters?: FeedFilters }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const layout = useCardLayout();
+  // New seed every time the "All" feed opens: a different set of up to 6 featured posts on top,
+  // per visit and per device. Kept for the visit so paging stays consistent.
+  const [seed] = useState(newFeedSeed);
+  const query = useMemo(() => ({ ...filters, seed }), [filters, seed]);
 
   const {
     data,
@@ -18,7 +22,7 @@ export function FeedList({ filters = {} }: { filters?: FeedFilters }) {
     isFetchingNextPage,
     isLoading,
     refetch,
-  } = useInfiniteQuery(demandsFeedQueryOptions(filters));
+  } = useInfiniteQuery({ ...demandsFeedQueryOptions(query), gcTime: 0 });
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -35,7 +39,11 @@ export function FeedList({ filters = {} }: { filters?: FeedFilters }) {
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const demands = data?.pages.flatMap((p) => p.demands) ?? [];
+  // A post can move between pages while someone scrolls; show it once.
+  const demands = useMemo(() => {
+    const seen = new Set<string>();
+    return (data?.pages.flatMap((p) => p.demands) ?? []).filter((d) => !seen.has(d.id) && seen.add(d.id));
+  }, [data]);
 
   if (isLoading) {
     return (

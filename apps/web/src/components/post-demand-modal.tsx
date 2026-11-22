@@ -1365,12 +1365,16 @@ import { boostCost as boostCost_, clampBoostDays } from "@/lib/boost-shared";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { X, Zap, MessageCircle, Loader2, Check, Coins, Plus, Minus, Users, ChevronLeft, Megaphone, Search } from "lucide-react";
+import { X, Zap, MessageCircle, Loader2, Check, Coins, Plus, Minus, Users, ChevronLeft, Megaphone, Search, Pencil, MapPin, IndianRupee, CalendarClock, LayoutGrid, FileText } from "lucide-react";
+import { motion } from "motion/react";
+import { ServiceAreaPicker, type ServiceAreaValue } from "@/components/service-area-picker";
+import { PRICE_UNIT_INFO, priceUnitsFor, withPriceUnit, type PriceUnit } from "@/lib/price-units";
+import { DEFAULT_SERVICE_RADIUS_KM, serviceAreaLabel } from "@/lib/service-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { countWords } from "@/lib/words";
-import { MAX_SUMMARY_WORDS, MAX_TIMELINE_DAYS, TIMELINE_CHIPS } from "@/lib/validation/demand";
+import { MAX_SUMMARY_WORDS, MAX_TIMELINE_DAYS, POST_LIFETIME_DAYS, TIMELINE_CHIPS } from "@/lib/validation/demand";
 import { formatBudgetRange } from "@/lib/money";
 import { CATEGORIES_DATA, ParentCategorySpec, ProviderSpec, SubCategorySpec } from "@/lib/categories";
 import { IndustryBadges, TagChips } from "@/components/category-flow/chips";
@@ -1434,8 +1438,10 @@ import { SnapSheet, SheetScrollArea } from "@/components/ui/snap-sheet";
 import { useSheetStyle } from "@/lib/sheet-style";
 
 type PostType = "PROMOTE" | "REQUIREMENT";
-type Step = "intent" | "role" | "category" | "sub" | "provider" | "details" | "review";
-const PROMOTE_STEPS: Step[] = ["intent", "category", "sub", "provider", "details", "review"];
+type Step = "intent" | "role" | "category" | "sub" | "provider" | "details" | "reach" | "review";
+// Offers: no connect-within / delivery timeline / response spots; instead a "reach" step
+// for the service area and the featured boost.
+const PROMOTE_STEPS: Step[] = ["intent", "category", "sub", "provider", "details", "reach", "review"];
 // "role" ("Who are you looking for?") step is disabled for now — re-add it after "intent" to bring it back.
 // const REQUIREMENT_STEPS: Step[] = ["intent", "role", "category", "sub", "provider", "details", "review"];
 const REQUIREMENT_STEPS: Step[] = ["intent", "category", "sub", "provider", "details", "review"];
@@ -1447,7 +1453,8 @@ const STEP_TITLES: Record<Step, string> = {
   sub: "Pick a Sub Category",
   provider: "Service, common needs & tech",
   details: "Describe, Budget & Timelines",
-  review: "Options & Post",
+  reach: "Service area & Featured",
+  review: "Review & Post",
 };
 
 interface RoleOption {
@@ -1541,6 +1548,13 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
   const { config: boostConfig } = useBoostSettings(open);
   const [boostDays, setBoostDays] = useState<number>(boostConfig.minDays);
   const [shareContact, setShareContact] = useState(false);
+  const [priceUnit, setPriceUnit] = useState<PriceUnit | null>(null);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaValue>({
+    type: null,
+    areas: [],
+    radiusKm: DEFAULT_SERVICE_RADIUS_KM,
+    online: false,
+  });
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [maxSlots, setMaxSlots] = useState<number>(MIN_BID_SLOTS);
   const [showTopUpModal, setShowTopUpModal] = useState<boolean>(false);
@@ -1592,6 +1606,23 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
   const completionProfile = completionProfileFor(selectedSub?.id, selectedParent?.id);
   // A pick from another category's list is dropped when the category changes.
   const completionPick = completion && completionProfile.options.includes(completion) ? completion : null;
+  const priceUnits = priceUnitsFor(selectedSub?.id, selectedParent?.id);
+  const priceUnitPick = priceUnit && priceUnits.includes(priceUnit) ? priceUnit : null;
+  const DAY = 24 * 60 * 60 * 1000;
+  const featuredDays = isPriority ? boostPick : 0;
+  // Every paid post runs 7 days (a request can pick less); featured days always fit inside or stretch it.
+  const nowMs = Date.now();
+  const featuredEndMs = featuredDays ? nowMs + featuredDays * DAY : null;
+  const baseEndMs = isRequirement ? Math.min(timelineEnd.getTime(), nowMs + POST_LIFETIME_DAYS * DAY) : nowMs + POST_LIFETIME_DAYS * DAY;
+  const liveEndMs = Math.max(baseEndMs, featuredEndMs ?? 0);
+  const liveDays = Math.max(1, Math.round((liveEndMs - nowMs) / DAY));
+  const areaLabel = serviceAreaLabel({
+    serviceAreaType: serviceArea.type,
+    serviceAreas: serviceArea.areas,
+    serviceRadiusKm: serviceArea.radiusKm,
+    serviceOnline: serviceArea.online,
+    locationName: place?.name ?? null,
+  });
 
   function choosePostType(type: PostType) {
     void haptic("medium");
@@ -1667,12 +1698,32 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
       toast.error(isRequirement ? "Add your budget." : "Add your price.");
       return;
     }
-    if (step === "details" && !completionPick) {
+    if (step === "details" && !isRequirement && !priceUnitPick) {
+      void haptic("error");
+      toast.error("Pick how you charge — per unit, per service or the whole package.");
+      return;
+    }
+    if (step === "reach" && !serviceArea.type) {
+      void haptic("error");
+      toast.error("Pick where you offer this.");
+      return;
+    }
+    if (step === "reach" && serviceArea.type === "REGIONS" && serviceArea.areas.length === 0) {
+      void haptic("error");
+      toast.error("Add at least one state, district or city.");
+      return;
+    }
+    if (step === "reach" && serviceArea.type === "NEARBY" && !place && (userLat == null || userLng == null)) {
+      void haptic("error");
+      toast.error("Set your location so nearby people can find you.");
+      return;
+    }
+    if (step === "details" && isRequirement && !completionPick) {
       void haptic("error");
       toast.error(isRequirement ? "Pick when the work should be completed." : "Pick your delivery timeline.");
       return;
     }
-    if (step === "details" && completionPick === "DATE" && !completionDate) {
+    if (step === "details" && isRequirement && completionPick === "DATE" && !completionDate) {
       void haptic("error");
       toast.error("Pick the date.");
       return;
@@ -1710,7 +1761,23 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     setSubmitting(true);
   }
 
+  /** Where the post is pinned on the map. Offers available everywhere aren't tied to a point. */
+  function postPoint(): { lat?: number; lng?: number; locationName?: string } {
+    const placeLabel = place ? [place.name, place.secondary?.split(", ")[0]].filter(Boolean).join(", ") : undefined;
+    if (isRequirement || serviceArea.type === "NEARBY") {
+      return { lat: place?.lat ?? userLat ?? undefined, lng: place?.lng ?? userLng ?? undefined, locationName: placeLabel };
+    }
+    if (serviceArea.type === "REGIONS") {
+      const first = serviceArea.areas.find((a) => a.lat != null && a.lng != null);
+      return first
+        ? { lat: first.lat!, lng: first.lng!, locationName: first.name }
+        : { lat: userLat ?? undefined, lng: userLng ?? undefined };
+    }
+    return {};
+  }
+
   function requestPost(auth: CreditAuth) {
+    const point = postPoint();
     return fetch("/api/demands", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1719,14 +1786,24 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
         requirementRoleId: isRequirement ? selectedRoleId ?? undefined : undefined,
         summary: summary.trim(),
         budget: budgetValue ?? undefined,
-        timelineEnd: timelineEnd.toISOString(),
-        completionTimeline: completionPick ?? undefined,
-        completionDate:
-          completionPick === "DATE" && completionDate ? new Date(`${completionDate}T12:00:00`).toISOString() : undefined,
+        ...(isRequirement
+          ? {
+              timelineEnd: timelineEnd.toISOString(),
+              completionTimeline: completionPick ?? undefined,
+              completionDate:
+                completionPick === "DATE" && completionDate ? new Date(`${completionDate}T12:00:00`).toISOString() : undefined,
+              maxSlots,
+            }
+          : {
+              priceUnit: priceUnitPick ?? undefined,
+              serviceAreaType: serviceArea.type ?? undefined,
+              serviceAreas: serviceArea.type === "REGIONS" ? serviceArea.areas : [],
+              serviceRadiusKm: serviceArea.type === "NEARBY" ? serviceArea.radiusKm : undefined,
+              serviceOnline: serviceArea.online,
+            }),
         isPriority,
         boostDays: isPriority ? boostPick : undefined,
         shareContact,
-        maxSlots,
         categoryParentId: selectedParent?.id,
         categorySubId: selectedSub?.id,
         categoryName: selectedParent?.name,
@@ -1736,9 +1813,7 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
         tags: selectedTags,
         selectedTechInputs: selectedInputs,
         mediaUrls,
-        lat: place?.lat ?? userLat ?? undefined,
-        lng: place?.lng ?? userLng ?? undefined,
-        locationName: place ? [place.name, place.secondary?.split(", ")[0]].filter(Boolean).join(", ") : undefined,
+        ...point,
         auth,
       }),
     });
@@ -1760,6 +1835,8 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     setMediaUrls([]);
     setIsPriority(false);
     setBoostDays(boostConfig.minDays);
+    setPriceUnit(null);
+    setServiceArea({ type: null, areas: [], radiusKm: DEFAULT_SERVICE_RADIUS_KM, online: false });
     const wasRequirement = isRequirement;
     const boosted = isPriority;
     setPlace(null);
@@ -1773,6 +1850,145 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
       duration: 2500,
     }).then(() => router.push(`/demands/${data.demand.id}`));
   }
+
+  const dayFmt = (ms: number) => new Date(ms).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+
+  const featuredToggle = (
+    <button
+      type="button"
+      onClick={() => { if (!canAffordBoost) return; void haptic("medium"); setIsPriority((v) => !v); }}
+      disabled={!canAffordBoost}
+      className={cn(
+        "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors disabled:opacity-50",
+        isPriority ? "border-amber-400/40 bg-amber-400/[0.10]" : "border-white/5 bg-white/[0.06] hover:bg-white/10"
+      )}
+    >
+      <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full", isPriority ? "bg-amber-400 text-black" : "bg-white/[0.08] text-neutral-500")}>
+        <Zap className="h-4 w-4" />
+      </span>
+      <span className="flex-1">
+        <span className="block text-sm font-semibold text-neutral-100">Featured</span>
+        <span className="mt-0.5 block text-xs leading-5 text-neutral-500">
+          Rotates at the top of the feed with a Featured badge. {boostConfig.pricePerDay} credits / day,{" "}
+          {boostConfig.minDays}–{boostConfig.maxDays} days (from {minBoostCost} credits).
+          {!canAffordBoost && " You don't have enough credits."}
+        </span>
+      </span>
+      <span className={cn("mt-1 relative h-6 w-10 shrink-0 rounded-full transition-colors", isPriority ? "bg-amber-400" : "bg-white/15")}>
+        <motion.span layout className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow" style={{ left: isPriority ? 18 : 2 }} />
+      </span>
+    </button>
+  );
+
+  // Day-by-day bar: featured days in amber, then the normal days, up to the end of the post.
+  const lifetimeBar = (
+    <div className="rounded-2xl border border-white/5 bg-white/[0.04] p-3.5">
+      <div className="flex gap-1">
+        {Array.from({ length: liveDays }).map((_, i) => (
+          <motion.span
+            key={i}
+            layout
+            className={cn("h-2 flex-1 rounded-full", i < featuredDays ? "bg-amber-400" : "bg-white/25")}
+          />
+        ))}
+      </div>
+      <p className="mt-2.5 text-xs leading-5 text-neutral-400">
+        {featuredDays === 0
+          ? `Live for ${liveDays} days as a normal post, until ${dayFmt(liveEndMs)}.`
+          : featuredDays >= liveDays
+            ? `Featured for all ${liveDays} days it's live, until ${dayFmt(liveEndMs)}.`
+            : `Featured for ${featuredDays} days, then a normal post for ${liveDays - featuredDays} more — live ${liveDays} days, until ${dayFmt(liveEndMs)}.`}
+      </p>
+    </div>
+  );
+
+  const priceText =
+    budgetValue != null
+      ? isRequirement
+        ? formatBudgetRange(budgetValue, budgetValue)
+        : withPriceUnit(formatBudgetRange(budgetValue, budgetValue), priceUnitPick)
+      : null;
+
+  const reviewRows: { label: string; value: string; done: boolean; step: Step | null; icon: typeof Check }[] = [
+    {
+      label: "Category",
+      value: selectedParent && selectedSub
+        ? `${selectedParent.name} › ${selectedSub.name}${selectedProvider ? ` › ${selectedProvider.name}` : ""}`
+        : "Custom",
+      done: true,
+      step: selectedParent ? "category" : null,
+      icon: LayoutGrid,
+    },
+    {
+      label: "Description",
+      value: summary.trim() ? `${summary.trim().slice(0, 70)}${summary.trim().length > 70 ? "…" : ""}` : "Missing",
+      done: summary.trim().length > 0 && !overWordLimit,
+      step: "details",
+      icon: FileText,
+    },
+    {
+      label: isRequirement ? "Budget" : "Price",
+      value: priceText ?? "Missing",
+      done: budgetValue != null && budgetValue > 0 && (isRequirement || priceUnitPick != null),
+      step: "details",
+      icon: IndianRupee,
+    },
+    ...(isRequirement
+      ? [
+          {
+            label: "Connect within",
+            value: `Until ${timelineEnd.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`,
+            done: true,
+            step: "details" as Step,
+            icon: CalendarClock,
+          },
+          {
+            label: "Completion",
+            value: completionPick
+              ? completionLabel(completionPick, completionPick === "DATE" && completionDate ? `${completionDate}T12:00:00` : null) ?? ""
+              : "Missing",
+            done: completionPick != null,
+            step: "details" as Step,
+            icon: CalendarClock,
+          },
+        ]
+      : [
+          {
+            label: "Service area",
+            value: areaLabel ?? "Missing",
+            done: areaLabel != null,
+            step: "reach" as Step,
+            icon: MapPin,
+          },
+        ]),
+    {
+      label: "Featured",
+      value: isPriority ? `${boostPick} days · ${boostCost} credits` : "Off",
+      done: true,
+      step: isRequirement ? null : "reach",
+      icon: Zap,
+    },
+  ];
+
+  const nextSteps: { title: string; detail: string; tone: string }[] = [
+    { title: "Goes live right away", detail: "As soon as you confirm the payment.", tone: "bg-emerald-400" },
+    ...(featuredDays > 0
+      ? [{
+          title: `Featured for ${featuredDays} days`,
+          detail: `Rotates at the top of the feed until ${dayFmt(featuredEndMs!)}.`,
+          tone: "bg-amber-400",
+        }]
+      : []),
+    ...(liveDays > featuredDays && featuredDays > 0
+      ? [{ title: "Then a normal post", detail: `For ${liveDays - featuredDays} more days.`, tone: "bg-white/60" }]
+      : []),
+    {
+      title: isRequirement ? "Providers respond" : "People connect with you",
+      detail: "You'll get a notification for each one, and can chat in the app.",
+      tone: "bg-sky-400",
+    },
+    { title: `Closes ${dayFmt(liveEndMs)}`, detail: "You can feature it again any time from your posts.", tone: "bg-white/30" },
+  ];
 
   return (
     <>
@@ -1799,7 +2015,7 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                   <img src="/logo/xivago-transparent-favicon.png" alt="xivago" className="h-5 w-5 object-contain" />
                 </div>
               )}
-              <h2 className="min-w-0 flex-1 px-2 text-center text-base font-medium text-neutral-400">{step === "category" && isRequirement ? `Step ${stepIndex + 1} of ${STEPS.length} · Your request` : STEP_TITLES[step]}</h2>
+              <h2 className="min-w-0 flex-1 px-2 text-center text-base font-medium text-neutral-400">{stepIndex > 0 ? `${stepIndex}/${STEPS.length - 1} · ${STEP_TITLES[step]}` : STEP_TITLES[step]}</h2>
               <div className="flex shrink-0 items-center gap-2">
                 {/* {creditBalance != null && (
                   <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold text-amber-400">
@@ -2161,11 +2377,51 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
               </p>
             </div>
 
-            {/* Connect within: how long the post stays open (timelineEnd) */}
+            {/* Offers: how the price is charged — the choices depend on the category */}
+            {!isRequirement && (
+              <div className="space-y-2.5">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-200">
+                    How do you charge? <span className="text-red-400">*</span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    {budgetValue && priceUnitPick
+                      ? `Shown as ${withPriceUnit(formatBudgetRange(budgetValue, budgetValue), priceUnitPick)}`
+                      : "Pick what your price covers."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {priceUnits.map((code) => {
+                    const active = priceUnitPick === code;
+                    return (
+                      <motion.button
+                        key={code}
+                        type="button"
+                        whileTap={{ scale: 0.97 }}
+                        aria-pressed={active}
+                        onClick={() => { void haptic("selection"); setPriceUnit(code); }}
+                        className={cn(
+                          "rounded-xl border px-3 py-2.5 text-left transition-colors",
+                          active ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.06] text-neutral-300 hover:bg-white/10"
+                        )}
+                      >
+                        <span className="block text-sm font-semibold">{PRICE_UNIT_INFO[code].label}</span>
+                        <span className={cn("block text-[11px] leading-4", active ? "text-black/55" : "text-neutral-500")}>
+                          {PRICE_UNIT_INFO[code].hint}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Requests only — Connect within: how long the post stays open (timelineEnd), up to 7 days */}
+            {isRequirement && (
             <div className="space-y-4 border-t border-white/5 pt-4">
               <p className="text-sm font-semibold text-neutral-200">Connect within</p>
               <p className="-mt-2 text-xs text-neutral-500">
-                {isRequirement ? "How long providers have to respond and connect with you." : "How long your offer stays open for people to connect."}
+                How long providers have to respond and connect with you (up to {MAX_TIMELINE_DAYS} days).
               </p>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {TIMELINE_CHIPS.map((chip) => {
@@ -2204,8 +2460,10 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                 />
               </div>
             </div>
+            )}
 
-            {/* Completion: when the work itself should be done; options depend on the category */}
+            {/* Requests only — Completion: when the work itself should be done; options depend on the category */}
+            {isRequirement && (
             <div className="space-y-3 border-t border-white/5 pt-4">
               <div>
                 <p className="text-sm font-semibold text-neutral-200">
@@ -2248,96 +2506,103 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                 </div>
               )}
             </div>
+            )}
             </div>
           )}
 
-          {/* STEP 5: OPTIONS + REVIEW */}
+          {/* OFFERS: where the service is available + featured boost */}
+          {step === "reach" && (
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-semibold text-neutral-200">
+                  Where do you offer this? <span className="text-red-400">*</span>
+                </p>
+                <p className="mt-0.5 text-xs text-neutral-500">People searching in these places will find your offer.</p>
+              </div>
+              <ServiceAreaPicker
+                value={serviceArea}
+                onChange={setServiceArea}
+                place={place}
+                onPlaceChange={(p) => { void haptic("light"); setPlace(p); }}
+              />
+              <div className="space-y-3 border-t border-white/5 pt-4">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-200">Get featured</p>
+                  <p className="mt-0.5 text-xs text-neutral-500">Optional. Featured offers rotate at the top of the feed.</p>
+                </div>
+                {featuredToggle}
+                {isPriority && <BoostDaysPicker config={boostConfig} mode="new" days={boostPick} onChange={setBoostDays} />}
+                {lifetimeBar}
+              </div>
+            </div>
+          )}
+
+          {/* LAST STEP: options (requests), live preview, checklist with edit links, what happens next, cost */}
           {step === "review" && (
-            <div className="space-y-3">
-              {/* Response spots: 3 to 100 */}
-              <div className="rounded-2xl border border-white/5 bg-white/[0.06] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400/10 text-amber-400 border border-amber-400/20">
-                      <Users className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <span className="block text-sm font-semibold text-neutral-100">Response spots</span>
-                      <span className="block text-xs text-neutral-400">How many providers can respond (3–100)</span>
+            <div className="space-y-4">
+              {isRequirement && (
+                <div className="space-y-3">
+                  {/* Response spots: 3 to 100 */}
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.06] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="grid h-9 w-9 place-items-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-amber-400">
+                          <Users className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <span className="block text-sm font-semibold text-neutral-100">Response spots</span>
+                          <span className="block text-xs text-neutral-400">How many providers can respond (3–100)</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => { void haptic("selection"); setMaxSlots((s) => Math.max(MIN_BID_SLOTS, s - 1)); }}
+                          disabled={maxSlots <= MIN_BID_SLOTS}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.14] text-white hover:bg-neutral-700 disabled:opacity-30"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min={MIN_BID_SLOTS}
+                          max={MAX_BID_SLOTS}
+                          value={maxSlots}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!Number.isNaN(val)) setMaxSlots(Math.min(MAX_BID_SLOTS, Math.max(MIN_BID_SLOTS, val)));
+                          }}
+                          className="w-14 rounded-lg bg-black px-2 py-1 text-center text-sm font-bold text-amber-400 outline-none ring-1 ring-white/10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { void haptic("selection"); setMaxSlots((s) => Math.min(MAX_BID_SLOTS, s + 1)); }}
+                          disabled={maxSlots >= MAX_BID_SLOTS}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.14] text-white hover:bg-neutral-700 disabled:opacity-30"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => { void haptic("selection"); setMaxSlots((s) => Math.max(MIN_BID_SLOTS, s - 1)); }}
-                      disabled={maxSlots <= MIN_BID_SLOTS}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.14] text-white hover:bg-neutral-700 disabled:opacity-30"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
                     <input
-                      type="number"
+                      type="range"
                       min={MIN_BID_SLOTS}
                       max={MAX_BID_SLOTS}
                       value={maxSlots}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!Number.isNaN(val)) setMaxSlots(Math.min(MAX_BID_SLOTS, Math.max(MIN_BID_SLOTS, val)));
-                      }}
-                      className="w-14 rounded-lg bg-black px-2 py-1 text-center text-sm font-bold text-amber-400 outline-none ring-1 ring-white/10"
+                      onChange={(e) => setMaxSlots(Number(e.target.value))}
+                      className="w-full cursor-pointer accent-amber-400"
                     />
-                    <button
-                      type="button"
-                      onClick={() => { void haptic("selection"); setMaxSlots((s) => Math.min(MAX_BID_SLOTS, s + 1)); }}
-                      disabled={maxSlots >= MAX_BID_SLOTS}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.14] text-white hover:bg-neutral-700 disabled:opacity-30"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="mt-1 flex justify-between text-[10px] text-neutral-500">
+                      <span>3 spots</span>
+                      <span className="font-semibold text-amber-400">{maxSlots} slots chosen</span>
+                      <span>100 spots</span>
+                    </div>
                   </div>
+
+                  <LocationPicker value={place} onChange={(p) => { void haptic("light"); setPlace(p); }} />
+                  {featuredToggle}
+                  {isPriority && <BoostDaysPicker config={boostConfig} mode="new" days={boostPick} onChange={setBoostDays} />}
                 </div>
-                <input
-                  type="range"
-                  min={MIN_BID_SLOTS}
-                  max={MAX_BID_SLOTS}
-                  value={maxSlots}
-                  onChange={(e) => setMaxSlots(Number(e.target.value))}
-                  className="w-full accent-amber-400 cursor-pointer"
-                />
-                <div className="mt-1 flex justify-between text-[10px] text-neutral-500">
-                  <span>3 spots</span>
-                  <span className="text-amber-400 font-semibold">{maxSlots} slots chosen</span>
-                  <span>100 spots</span>
-                </div>
-              </div>
-
-              <LocationPicker value={place} onChange={(p) => { void haptic("light"); setPlace(p); }} />
-
-              <button
-                type="button"
-                onClick={() => { if (!canAffordBoost) return; void haptic("medium"); setIsPriority((v) => !v); }}
-                disabled={!canAffordBoost}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors disabled:opacity-50",
-                  isPriority ? "border-white/25 bg-white/[0.14]" : "border-white/5 bg-white/[0.06] hover:bg-white/10"
-                )}
-              >
-                <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full", isPriority ? "bg-white text-black" : "bg-white/[0.08] text-neutral-500")}>
-                  <Zap className="h-4 w-4" />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-neutral-100">Featured</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-neutral-500">
-                    Pin your post on top of every list with a Featured badge.{" "}
-                    {boostConfig.pricePerDay} credits / day, {boostConfig.minDays}–{boostConfig.maxDays} days (from{" "}
-                    {minBoostCost} credits).
-                    {!canAffordBoost && " You don't have enough credits."}
-                  </span>
-                </span>
-              </button>
-
-              {isPriority && (
-                <BoostDaysPicker config={boostConfig} mode="new" days={boostPick} onChange={setBoostDays} />
               )}
 
               <button
@@ -2351,59 +2616,119 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                 <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full", shareContact ? "bg-white text-black" : "bg-white/[0.08] text-neutral-500")}>
                   <MessageCircle className="h-4 w-4" />
                 </span>
-                <span>
-                  <span className="block text-sm font-semibold text-neutral-100">Allow bidders to reach me on WhatsApp</span>
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-neutral-100">
+                    {isRequirement ? "Allow bidders to reach me on WhatsApp" : "Allow people to reach me on WhatsApp"}
+                  </span>
                   <span className="mt-0.5 block text-xs leading-5 text-neutral-500">Off by default. In-app chat always works either way.</span>
+                </span>
+                <span className={cn("mt-1 relative h-6 w-10 shrink-0 rounded-full transition-colors", shareContact ? "bg-emerald-400" : "bg-white/15")}>
+                  <motion.span layout className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow" style={{ left: shareContact ? 18 : 2 }} />
                 </span>
               </button>
 
-              <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Review</p>
-              <div className="space-y-2 rounded-2xl border border-white/5 bg-white/[0.06] p-4">
-                {selectedParent && selectedSub && (
-                  <span className="inline-block rounded-full border border-white/10 bg-white/[0.08] px-2.5 py-0.5 text-xs font-bold text-neutral-300">
-                    {selectedParent.name} › {selectedSub.name}
-                    {selectedProvider && ` › ${selectedProvider.name}`}
-                  </span>
-                )}
-                {selectedRole && (
-                  <span className="inline-block rounded-full border border-white/10 bg-white/[0.08] px-2.5 py-0.5 text-xs font-bold text-neutral-300">
-                    Seeking {selectedRole.name}
-                  </span>
-                )}
-                {selectedProvider && selectedProblemIds.length > 0 && (
-                  <ul className="space-y-0.5 text-xs text-neutral-400">
-                    {selectedProvider.problems
-                      .filter((p) => selectedProblemIds.includes(p.id))
-                      .map((p) => (
-                        <li key={p.id}>• {p.title}</li>
-                      ))}
-                  </ul>
-                )}
-                <p className="text-sm font-medium leading-6 text-neutral-100">{summary}</p>
-                <TagChips tags={selectedTags} tone="dark" />
-                {mediaUrls.length > 0 && (
-                  <p className="text-xs font-semibold text-neutral-500">📎 {mediaUrls.length} media attachment(s) uploaded</p>
-                )}
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-500">
-                  {budgetValue != null && (
-                    <span className="font-semibold text-neutral-200">{formatBudgetRange(budgetValue, budgetValue)}</span>
+              {/* Live preview: how the post will look in the feed */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Preview</p>
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "relative overflow-hidden rounded-2xl border p-4",
+                    isPriority ? "border-amber-400/40 bg-gradient-to-br from-amber-400/[0.12] to-white/[0.04]" : "border-white/10 bg-white/[0.06]"
                   )}
-                  <span>Connect by {timelineEnd.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
-                  {completionPick && (
-                    <span>
-                      {isRequirement ? "Complete: " : "Delivery: "}
-                      {completionLabel(completionPick, completionPick === "DATE" && completionDate ? `${completionDate}T12:00:00` : null)}
+                >
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+                      {isRequirement ? "Request" : "Offer"}
                     </span>
-                  )}
-                  <span className="text-amber-400 font-semibold">{maxSlots} Bid Slots</span>
+                    {isPriority && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+                        <Zap className="h-3 w-3" /> Featured
+                      </span>
+                    )}
+                    {selectedParent && selectedSub && (
+                      <span className="truncate text-[11px] font-semibold text-neutral-400">
+                        {selectedParent.name} › {selectedSub.name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="line-clamp-4 text-sm font-medium leading-6 text-neutral-100">{summary || "Your description shows here"}</p>
+                  <TagChips tags={selectedTags} tone="dark" />
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                    {budgetValue != null && (
+                      <span className="text-sm font-bold text-white">
+                        {isRequirement ? formatBudgetRange(budgetValue, budgetValue) : withPriceUnit(formatBudgetRange(budgetValue, budgetValue), priceUnitPick)}
+                      </span>
+                    )}
+                    {!isRequirement && areaLabel && (
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {areaLabel}</span>
+                    )}
+                    {isRequirement && place && (
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {place.name}</span>
+                    )}
+                    {mediaUrls.length > 0 && <span>📎 {mediaUrls.length}</span>}
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Checklist — tap a row to go back and change it */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Check everything · tap to change</p>
+                <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-white/[0.04]">
+                  {reviewRows.map((row, i) => (
+                    <motion.button
+                      key={row.label}
+                      type="button"
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      onClick={() => {
+                        if (!row.step) return;
+                        void haptic("light");
+                        setStep(row.step);
+                      }}
+                      className="flex w-full items-center gap-3 px-3.5 py-3 text-left active:bg-white/5"
+                    >
+                      <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full", row.done ? "bg-emerald-400/15 text-emerald-400" : "bg-red-500/15 text-red-400")}>
+                        {row.done ? <Check className="h-4 w-4" strokeWidth={3} /> : <row.icon className="h-4 w-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{row.label}</span>
+                        <span className="block truncate text-sm text-neutral-100">{row.value}</span>
+                      </span>
+                      {row.step && <Pencil className="h-3.5 w-3.5 shrink-0 text-neutral-500" />}
+                    </motion.button>
+                  ))}
                 </div>
               </div>
 
+              {/* What happens next */}
+              <div className="rounded-2xl border border-white/5 bg-white/[0.04] p-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">What happens next</p>
+                <ol className="relative space-y-3 border-l border-white/10 pl-5">
+                  {nextSteps.map((n, i) => (
+                    <motion.li
+                      key={n.title}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + i * 0.06 }}
+                      className="relative"
+                    >
+                      <span className={cn("absolute -left-[27px] top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full ring-4 ring-black", n.tone)} />
+                      <p className="text-sm font-semibold text-neutral-100">{n.title}</p>
+                      <p className="text-xs text-neutral-500">{n.detail}</p>
+                    </motion.li>
+                  ))}
+                </ol>
+              </div>
+
               {/* Posting fee & Credit Summary */}
-              <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 space-y-2.5">
+              <div className="space-y-2.5 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-400">Posting fee</span>
-                  <span className="font-semibold text-white">10 Credits</span>
+                  <span className="text-neutral-400">Posting fee · live {POST_LIFETIME_DAYS} days</span>
+                  <span className="font-semibold text-white">{DEMAND_POST_CREDIT_COST} Credits</span>
                 </div>
                 {isPriority && (
                   <div className="flex items-center justify-between text-xs">
@@ -2413,16 +2738,20 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                     <span className="font-semibold text-amber-400">+{boostCost} Credits</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-400">Price per response spot</span>
-                  <span className="font-semibold text-emerald-400">
-                    ₹{calculateSlotPrice(budgetValue).rupees} / slot
-                  </span>
-                </div>
-                <div className="h-px bg-white/[0.14] my-1" />
+                {isRequirement && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-400">Price per response spot</span>
+                    <span className="font-semibold text-emerald-400">
+                      ₹{calculateSlotPrice(budgetValue).rupees} / slot
+                    </span>
+                  </div>
+                )}
+                <div className="my-1 h-px bg-white/[0.14]" />
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className="text-neutral-300">Total Required</span>
-                  <span className="text-amber-400 text-sm">{totalCreditCost} Credits</span>
+                  <motion.span key={totalCreditCost} initial={{ scale: 1.25 }} animate={{ scale: 1 }} className="text-sm text-amber-400">
+                    {totalCreditCost} Credits
+                  </motion.span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-neutral-400">Your Balance</span>
@@ -2432,7 +2761,7 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
                 </div>
 
                 {!canAffordPost && (
-                  <div className="mt-2 rounded-xl bg-red-950/40 border border-red-900/50 p-2.5 flex items-center justify-between">
+                  <div className="mt-2 flex items-center justify-between rounded-xl border border-red-900/50 bg-red-950/40 p-2.5">
                     <span className="text-xs text-red-300">
                       Short by {totalCreditCost - (creditBalance ?? 0)} credits
                     </span>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { demandCreateSchema, demandFeedQuerySchema } from "@/lib/validation/demand";
+import { demandCreateSchema, demandFeedQuerySchema, postLifetimeEnd, POST_LIFETIME_DAYS } from "@/lib/validation/demand";
 
 const base = {
   summary: "Need a trademark filed",
@@ -61,18 +61,20 @@ test("connect window accepts 14 and 30 days but not 31", () => {
   assert.equal(demandCreateSchema.safeParse({ ...base, timelineEnd: days(31.1) }).success, false);
 });
 
-test("completion timeline is required and must fit the category", () => {
-  const { completionTimeline: _omit, ...noCompletion } = base;
+const request = { ...base, postType: "REQUIREMENT" };
+
+test("completion timeline is required on requests and must fit the category", () => {
+  const { completionTimeline: _omit, ...noCompletion } = request;
   assert.equal(demandCreateSchema.safeParse(noCompletion).success, false);
   // Software (project): months are fine, same-day is not offered.
-  assert.equal(demandCreateSchema.safeParse({ ...base, categorySubId: "25.1", completionTimeline: "MONTH_3" }).success, true);
-  assert.equal(demandCreateSchema.safeParse({ ...base, categorySubId: "25.1", completionTimeline: "SAME_DAY" }).success, false);
+  assert.equal(demandCreateSchema.safeParse({ ...request, categorySubId: "25.1", completionTimeline: "MONTH_3" }).success, true);
+  assert.equal(demandCreateSchema.safeParse({ ...request, categorySubId: "25.1", completionTimeline: "SAME_DAY" }).success, false);
   // Tech support is a session even though Software is a project category.
-  assert.equal(demandCreateSchema.safeParse({ ...base, categorySubId: "25.7", completionTimeline: "SAME_DAY" }).success, true);
+  assert.equal(demandCreateSchema.safeParse({ ...request, categorySubId: "25.7", completionTimeline: "SAME_DAY" }).success, true);
 });
 
 test("a specific-date completion needs a future date", () => {
-  const event = { ...base, categorySubId: "23.1", completionTimeline: "DATE" };
+  const event = { ...request, categorySubId: "23.1", completionTimeline: "DATE" };
   assert.equal(demandCreateSchema.safeParse(event).success, false);
   const inAMonth = new Date(Date.now() + 30 * 86_400_000).toISOString();
   assert.equal(demandCreateSchema.safeParse({ ...event, completionDate: inAMonth }).success, true);
@@ -84,4 +86,45 @@ test("feed query accepts provider and problem filters", () => {
   const parsed = demandFeedQuerySchema.parse({ provider: "1.3.1", problem: "1.3.1.1" });
   assert.equal(parsed.provider, "1.3.1");
   assert.equal(parsed.problem, "1.3.1.1");
+});
+
+const DAY = 86_400_000;
+
+test("offers need no connect window or completion timeline", () => {
+  const { timelineEnd: _t, completionTimeline: _c, ...offer } = base;
+  assert.equal(demandCreateSchema.safeParse(offer).success, true);
+  const { timelineEnd: _t2, ...noWindow } = request;
+  assert.equal(demandCreateSchema.safeParse(noWindow).success, false);
+});
+
+test("an offer's price type must fit its category", () => {
+  // Software (project): per project yes, per night no.
+  assert.equal(demandCreateSchema.safeParse({ ...base, categorySubId: "25.1", priceUnit: "PER_PROJECT" }).success, true);
+  assert.equal(demandCreateSchema.safeParse({ ...base, categorySubId: "25.1", priceUnit: "PER_NIGHT" }).success, false);
+  // Travel: per person.
+  assert.equal(demandCreateSchema.safeParse({ ...base, categoryParentId: "24", categorySubId: "24.1", priceUnit: "PER_PERSON" }).success, true);
+});
+
+test("service area rules", () => {
+  assert.equal(demandCreateSchema.safeParse({ ...base, serviceAreaType: "REGIONS" }).success, false);
+  assert.equal(
+    demandCreateSchema.safeParse({ ...base, serviceAreaType: "REGIONS", serviceAreas: [{ kind: "STATE", name: "Kerala" }] }).success,
+    true,
+  );
+  assert.equal(demandCreateSchema.safeParse({ ...base, serviceAreaType: "NEARBY" }).success, false);
+  assert.equal(demandCreateSchema.safeParse({ ...base, serviceAreaType: "NEARBY", lat: 12.9, lng: 77.6 }).success, true);
+  assert.equal(demandCreateSchema.safeParse({ ...base, serviceAreaType: "ONLINE" }).success, true);
+});
+
+test("posts live 7 days; featured days fit inside or stretch it", () => {
+  const now = Date.UTC(2026, 0, 1);
+  const days = (d: Date) => Math.round((d.getTime() - now) / DAY);
+  assert.equal(days(postLifetimeEnd({ now })), POST_LIFETIME_DAYS);
+  // 3 featured days: still 7 days live (3 featured + 4 normal).
+  assert.equal(days(postLifetimeEnd({ now, boostEnd: new Date(now + 3 * DAY) })), 7);
+  // 10 featured days: live for all 10.
+  assert.equal(days(postLifetimeEnd({ now, boostEnd: new Date(now + 10 * DAY) })), 10);
+  // A request's shorter window is kept; a longer (old-app) one is capped at 7.
+  assert.equal(days(postLifetimeEnd({ now, requested: new Date(now + 3 * DAY) })), 3);
+  assert.equal(days(postLifetimeEnd({ now, requested: new Date(now + 30 * DAY) })), 7);
 });

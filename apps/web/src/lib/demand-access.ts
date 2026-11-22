@@ -34,6 +34,11 @@ export const DEMAND_CARD_SELECT = {
   lat: true,
   lng: true,
   locationName: true,
+  priceUnit: true,
+  serviceAreaType: true,
+  serviceAreas: true,
+  serviceRadiusKm: true,
+  serviceOnline: true,
   createdAt: true,
   authorId: true,
   author: {

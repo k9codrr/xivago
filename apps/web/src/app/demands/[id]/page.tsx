@@ -25,6 +25,8 @@ import { PriorityBadge } from "@/components/priority-badge";
 import { SlotStrip } from "@/components/slot-strip";
 import { DemandDetailActions } from "@/components/demand-detail-actions";
 import { formatBudgetRange } from "@/lib/money";
+import { withPriceUnit } from "@/lib/price-units";
+import { serviceAreaLabel } from "@/lib/service-area";
 import { DemandProviderProblems } from "@/components/category-flow/demand-provider-problems";
 import { DemandStatsPanel } from "@/components/demand-stats-panel";
 import { demandTypeLabel } from "@/lib/demand-type";
@@ -113,7 +115,7 @@ export default async function DemandDetailPage({ params }: PageProps) {
       )
     : false;
 
-  const budgetLabel = formatBudgetRange(demand.budgetMin, demand.budgetMax);
+  const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const typeLabel = demandTypeLabel(demand);
   const isAuthor = sessionUser?.id === demand.authorId;
   const viewerHoldsSlot = Boolean(sessionUser && demand.bids.some((b) => b.bidder.id === sessionUser.id));
@@ -125,6 +127,8 @@ export default async function DemandDetailPage({ params }: PageProps) {
   const techEntries = Object.entries(techInputs).filter(([, opts]) => Array.isArray(opts) && opts.length > 0);
   const postId = postReference(demand.id);
   const completionText = completionLabel(demand.completionTimeline, demand.completionDate);
+  const isOffer = demand.postType === "PROMOTE";
+  const areaText = serviceAreaLabel(demand, 6);
   const supportEmail = publicEnv.NEXT_PUBLIC_SUPPORT_EMAIL;
   const supportWhatsApp = publicEnv.NEXT_PUBLIC_SUPPORT_WHATSAPP.replace(/\D/g, "");
   const supportSubject = encodeURIComponent(`Help with post ${postId}`);
@@ -200,7 +204,8 @@ export default async function DemandDetailPage({ params }: PageProps) {
                     <DetailRow icon={Tag} label="Sub-category" value={demand.subCategoryName} />
                   )}
                   <DetailRow icon={CalendarDays} label="Posted on" value={dateFmt.format(createdAt)} />
-                  <DetailRow icon={Clock} label="Connect by" value={dateFmt.format(new Date(demand.timelineEnd))} />
+                  <DetailRow icon={Clock} label={isOffer ? "Live until" : "Connect by"} value={dateFmt.format(new Date(demand.timelineEnd))} />
+                  {areaText && <DetailRow icon={MapPin} label="Serves" value={areaText} />}
                   {completionText && (
                     <DetailRow
                       icon={CalendarDays}
@@ -208,11 +213,13 @@ export default async function DemandDetailPage({ params }: PageProps) {
                       value={completionText}
                     />
                   )}
-                  <DetailRow
-                    icon={Users}
-                    label="Response spots"
-                    value={`${demand.bids.length} of ${maxSlots} filled`}
-                  />
+                  {!isOffer && (
+                    <DetailRow
+                      icon={Users}
+                      label="Response spots"
+                      value={`${demand.bids.length} of ${maxSlots} filled`}
+                    />
+                  )}
                   {techEntries.map(([label, opts]) => (
                     <DetailRow key={label} icon={BadgeCheck} label={label} value={opts.join(", ")} />
                   ))}

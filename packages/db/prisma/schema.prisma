@@ -433,6 +433,20 @@ model Demand {
   // Human-readable place picked in the post drawer (e.g. "Koramangala, Bengaluru").
   locationName String? @db.VarChar(200)
 
+  // How an offer's price is charged -- a code from apps/web/src/lib/price-units.ts
+  // ("PER_SESSION", "PER_PROJECT", "TOTAL", ...). Null on requests and older posts.
+  priceUnit String? @db.VarChar(20)
+
+  // Where an offer is available -- see apps/web/src/lib/service-area.ts.
+  // "NEARBY" (serviceRadiusKm around lat/lng), "REGIONS" (serviceAreas),
+  // "ALL_INDIA" or "ONLINE". Null on requests and older posts.
+  serviceAreaType String? @db.VarChar(20)
+  // REGIONS only: [{ kind: "STATE" | "DISTRICT" | "CITY", name, state? }]
+  serviceAreas    Json?
+  serviceRadiusKm Int?
+  // Physical offers can also be delivered online.
+  serviceOnline   Boolean @default(false)
+
   status DemandStatus @default(OPEN)
 
   isPriority        Boolean   @default(false)

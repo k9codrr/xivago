@@ -6,6 +6,7 @@ import { CalendarDays, Clock, MapPin, MessageCircle, User, Wallet, X } from "luc
 import type { DemandCardData } from "@/components/demand-card";
 import { CountdownBadge } from "@/components/countdown-badge";
 import { formatBudgetRange } from "@/lib/money";
+import { withPriceUnit } from "@/lib/price-units";
 import { cn } from "@/lib/utils";
 import { DemandProviderProblems } from "@/components/category-flow/demand-provider-problems";
 import { DemandStatsPanel } from "@/components/demand-stats-panel";
@@ -26,7 +27,7 @@ export function DemandDetailSheet({ demand, onClose }: { demand: DemandCardData;
     };
   }, [onClose]);
 
-  const budgetLabel = formatBudgetRange(demand.budgetMin, demand.budgetMax);
+  const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const postedLabel = demand.createdAt
     ? new Date(demand.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
     : "Recently";
