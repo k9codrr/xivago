@@ -3,9 +3,9 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/components/ui/haptic";
-import { SHEET_STYLES, setSheetStyle, useSheetStyle, type SheetStyle } from "@/lib/sheet-style";
+import { SHEET_STYLES, type SheetStyle } from "@/lib/sheet-style";
 
-const LABELS: Record<SheetStyle, { title: string; hint: string }> = {
+export const SHEET_STYLE_LABELS: Record<SheetStyle, { title: string; hint: string }> = {
   default: { title: "Default", hint: "Dark frosted sheet" },
   spotify: { title: "Spotify", hint: "Solid dark, music-app style" },
   glass: { title: "Liquid glass", hint: "Clear, Apple-style glass" },
@@ -34,8 +34,7 @@ function Preview({ style }: { style: SheetStyle }) {
   );
 }
 
-export function SheetStylePicker() {
-  const current = useSheetStyle();
+export function SheetStylePicker({ value: current, onChange }: { value: SheetStyle; onChange: (v: SheetStyle) => void }) {
   const tap = useHaptic("light");
 
   return (
@@ -50,7 +49,7 @@ export function SheetStylePicker() {
             aria-checked={selected}
             onClick={() => {
               tap();
-              setSheetStyle(style);
+              onChange(style);
             }}
             className={cn(
               "flex flex-col gap-2.5 rounded-[18px] border-2 p-2.5 text-left transition-colors",
@@ -62,8 +61,8 @@ export function SheetStylePicker() {
             <Preview style={style} />
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
-                <p className="text-[14px] font-semibold leading-tight">{LABELS[style].title}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-neutral-500">{LABELS[style].hint}</p>
+                <p className="text-[14px] font-semibold leading-tight">{SHEET_STYLE_LABELS[style].title}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-neutral-500">{SHEET_STYLE_LABELS[style].hint}</p>
               </div>
               <span
                 className={cn(

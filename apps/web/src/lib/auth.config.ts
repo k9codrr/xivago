@@ -60,6 +60,8 @@ export const authConfig: NextAuthConfig = {
       session.user.phoneVerified = Boolean(token.phoneVerified);
       session.user.createdAt = (token.createdAt as string) ?? new Date().toISOString();
       session.user.isPro = Boolean(token.isPro);
+      // undefined on tokens issued before onboarding existed: treat as done.
+      session.user.onboarded = token.onboarded !== false;
       return session;
     },
   },

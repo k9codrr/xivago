@@ -3,9 +3,9 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/components/ui/haptic";
-import { CARD_LAYOUTS, setCardLayout, useCardLayout, type CardLayout } from "@/lib/card-layout";
+import { CARD_LAYOUTS, type CardLayout } from "@/lib/card-layout";
 
-const LABELS: Record<CardLayout, { title: string; hint: string }> = {
+export const CARD_LAYOUT_LABELS: Record<CardLayout, { title: string; hint: string }> = {
   classic: { title: "Classic", hint: "Full-bleed image, text on top" },
   profile: { title: "Profile", hint: "Photo tile with details below" },
 };
@@ -44,8 +44,7 @@ function ProfilePreview() {
   );
 }
 
-export function CardLayoutPicker() {
-  const current = useCardLayout();
+export function CardLayoutPicker({ value: current, onChange }: { value: CardLayout; onChange: (v: CardLayout) => void }) {
   const tap = useHaptic("light");
 
   return (
@@ -60,7 +59,7 @@ export function CardLayoutPicker() {
             aria-checked={selected}
             onClick={() => {
               tap();
-              setCardLayout(layout);
+              onChange(layout);
             }}
             className={cn(
               "flex flex-col gap-3 rounded-[20px] border-2 p-3 text-left transition-colors",
@@ -72,8 +71,8 @@ export function CardLayoutPicker() {
             <div className="mx-auto w-[72%]">{layout === "classic" ? <ClassicPreview /> : <ProfilePreview />}</div>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold">{LABELS[layout].title}</p>
-                <p className="text-[12px] leading-snug text-neutral-500">{LABELS[layout].hint}</p>
+                <p className="text-[15px] font-semibold">{CARD_LAYOUT_LABELS[layout].title}</p>
+                <p className="text-[12px] leading-snug text-neutral-500">{CARD_LAYOUT_LABELS[layout].hint}</p>
               </div>
               <span
                 className={cn(

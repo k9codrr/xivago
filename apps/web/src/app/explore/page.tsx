@@ -256,7 +256,7 @@
 //           </BentoCard>
 
 //           {/* Autopay */}
-//           <BentoCard href="/my-slots" className="min-h-[90px]">
+//           <BentoCard href="/explore/buy" className="min-h-[90px]">
 //             <CardLabel>{STATS.autopay.label}</CardLabel>
 //             <p className="mt-1 text-xl font-bold text-neutral-900 dark:text-neutral-50">
 //               {STATS.autopay.value}
@@ -330,7 +330,7 @@
 // ];
 
 // const NAV = [
-//   { icon: Wallet, label: "Spots", href: "/my-slots" },
+//   { icon: Wallet, label: "Spots", href: "/explore/buy" },
 //   { icon: ArrowUpRight, label: "Spending", href: "/spends" },
 //   { icon: Home, label: "Home", href: "/explore", active: true },
 //   { icon: Trophy, label: "Rewards", href: "/invite" },
@@ -443,7 +443,7 @@
 //           <Tile href="/communities" title="Groups" sub="Join communities" icon={Users} glow="from-blue-500/30" className="h-40" />
 //           <Tile href="/spends" title="Spends" sub="₹0 this month" icon={Tag} glow="from-rose-500/30" className="h-40" />
 //           <Tile href="/invite" title="Invite" sub="Flat ₹500 / referral" icon={Gift} glow="from-amber-400/30" className="row-span-2" />
-//           <Tile href="/my-slots" title="My Slots" icon={Layers} glow="from-yellow-400/30" compact />
+//           <Tile href="/explore/buy" title="My Slots" icon={Layers} glow="from-yellow-400/30" compact />
 //           <Tile href="/explore/sell" title="Sell now" icon={Plus} glow="from-fuchsia-500/30" compact />
 //         </div>
 //       </section>
@@ -564,7 +564,7 @@
 // const PEOPLE = ["Aarav Mehta", "Aryan Rohilla", "Disha Chawla", "Jitendra Arora", "Mr Syed Ali"];
 // 
 // const NAV = [
-//   { icon: Wallet, label: "Spots", href: "/my-slots" },
+//   { icon: Wallet, label: "Spots", href: "/explore/buy" },
 //   { icon: ArrowUpRight, label: "Spending", href: "/spends" },
 //   { icon: null, label: "Home", href: "/explore", active: true },
 //   { icon: Trophy, label: "Rewards", href: "/invite" },
@@ -710,7 +710,7 @@
 //         <section className="mt-5 space-y-[22px]">
 //           <div className="no-scrollbar flex items-start gap-[18px] overflow-x-auto overflow-y-hidden pl-8 pr-5">
 //             <TileChip icon={Plus} label="Offer" href="/explore/sell" cut />
-//             <PillChip icon={UserRoundCog} label="My responses" href="/my-slots" />
+//             <PillChip icon={UserRoundCog} label="My responses" href="/explore/buy" />
 // 
 //             {/* <PillChip icon={MapPin} label="Local" href="/?local=true" /> */}
 //           </div>
@@ -781,7 +781,7 @@
 //                 Get <span className="font-semibold text-amber-300">300</span><br />credits per friend
 //               </CardSub>
 //             </Card>
-//             <Card href="/my-slots" className="flex h-[55px] items-center px-[16px]">
+//             <Card href="/explore/buy" className="flex h-[55px] items-center px-[16px]">
 //               <CardTitle>My responses</CardTitle>
 //               <Icon3D src="slots" className="right-2 top-1/2 h-[38px] w-[38px] -translate-y-1/2 rotate-[10deg]" />
 //             </Card>
@@ -797,7 +797,7 @@
 //           <SectionHeader eyebrow="Requests & offers" title="Post, respond, find" href="/categories" />
 //           <div className="grid grid-cols-3 gap-3">
 //             <MiniTile href="/post" src="megaphone" title="Post" sub="New request" glow="bg-indigo-500/25" />
-//             <MiniTile href="/my-demands" src="package" title="My posts" sub="Requests & offers" glow="bg-orange-500/20" />
+//             <MiniTile href="/explore/sell" src="package" title="My posts" sub="Requests & offers" glow="bg-orange-500/20" />
 //             <MiniTile href="/featured" src="star" title="Featured" sub="Get seen" glow="bg-yellow-500/20" />
 //             <MiniTile href="/?local=true" src="pin" title="Near me" sub="Close by" glow="bg-rose-500/20" />
 //             <MiniTile href="/" src="globe" title="Anywhere" sub="Everywhere" glow="bg-sky-500/20" />
@@ -831,8 +831,8 @@
 //         {/* ============ WALLET ============ */}
 //         <section className="mt-10 px-5">
 //           <SectionHeader eyebrow="Wallet" title="Credits & payments" />
-//           <Card href="/credits/send" className="flex h-[92px] flex-col justify-center bg-[linear-gradient(135deg,#1e1b4b_0%,#14122b_55%,#0b0b0b_100%)] px-[18px]">
-//             <CardTitle>Send Credits</CardTitle>
+//           <Card href="/credits" className="flex h-[92px] flex-col justify-center bg-[linear-gradient(135deg,#1e1b4b_0%,#14122b_55%,#0b0b0b_100%)] px-[18px]">
+//             <CardTitle>Credits wallet</CardTitle>
 //             <CardSub className="mt-1">Transfer to anyone, instantly</CardSub>
 //             <Glow className="right-0 top-0 bg-indigo-500/30" />
 //             <Icon3D src="money" className="right-4 top-1/2 h-[64px] w-[64px] -translate-y-1/2 -rotate-[6deg]" />
@@ -1166,7 +1166,7 @@ import { ScrollToTop } from "@/components/scroll-to-top";
 const PEOPLE = ["Aarav Mehta", "Aryan Rohilla", "Disha Chawla", "Jitendra Arora", "Mr Syed Ali"];
 
 const NAV = [
-  { icon: Wallet, label: "Spots", href: "/my-slots" },
+  { icon: Wallet, label: "Spots", href: "/explore/buy" },
   { icon: ArrowUpRight, label: "Spending", href: "/spends" },
   { icon: null, label: "Home", href: "/explore", active: true },
   { icon: Trophy, label: "Rewards", href: "/invite" },
@@ -1305,7 +1305,7 @@ export default function Explore() {
                 Get <span className="font-semibold text-amber-300">300</span><br />credits per friend
               </CardSub>
             </Card>
-            <Card href="/my-slots" className="flex h-[55px] items-center px-[16px]">
+            <Card href="/explore/buy" className="flex h-[55px] items-center px-[16px]">
               <CardTitle>My responses</CardTitle>
               <Icon3D src="slots" className="right-2 top-1/2 h-[38px] w-[38px] -translate-y-1/2 rotate-[10deg]" />
             </Card>
@@ -1321,7 +1321,7 @@ export default function Explore() {
           <SectionHeader eyebrow="Requests & offers" title="Post, respond, find" href="/categories" />
           <div className="grid grid-cols-3 gap-3">
             <MiniTile href="/post" src="megaphone" title="Post" sub="New request" glow="bg-white/10" color="bg-indigo-500/25" />
-            <MiniTile href="/my-demands" src="package" title="My posts" sub="Requests & offers" glow="bg-white/10" color="bg-orange-500/20" />
+            <MiniTile href="/explore/sell" src="package" title="My posts" sub="Requests & offers" glow="bg-white/10" color="bg-orange-500/20" />
             <MiniTile href="/featured" src="star" title="Featured" sub="Get seen" glow="bg-amber-400/20" color="bg-yellow-500/20" />
             <MiniTile href="/?local=true" src="pin" title="Near me" sub="Close by" glow="bg-white/10" color="bg-rose-500/20" />
             <MiniTile href="/" src="globe" title="Anywhere" sub="Everywhere" glow="bg-white/10" color="bg-sky-500/20" />
@@ -1355,9 +1355,9 @@ export default function Explore() {
         {/* ============ WALLET ============ */}
         <section className="mt-10 px-5">
           <SectionHeader eyebrow="Wallet" title="Credits & payments" />
-          <Card href="/credits/send" className="flex h-[92px] flex-col justify-center bg-[linear-gradient(135deg,#1e1b4b_0%,#14122b_55%,#0b0b0b_100%)] px-[18px]">
-            <CardTitle>Send Credits</CardTitle>
-            <CardSub className="mt-1">Transfer to anyone, instantly</CardSub>
+          <Card href="/credits" className="flex h-[92px] flex-col justify-center bg-[linear-gradient(135deg,#1e1b4b_0%,#14122b_55%,#0b0b0b_100%)] px-[18px]">
+            <CardTitle>Credits wallet</CardTitle>
+            <CardSub className="mt-1">Balance, top-ups and history</CardSub>
             <Glow className="right-0 top-0 bg-amber-400/15" color="bg-indigo-500/30" />
             <Icon3D src="money" className="right-4 top-1/2 h-[64px] w-[64px] -translate-y-1/2 -rotate-[6deg]" />
           </Card>

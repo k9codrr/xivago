@@ -1074,8 +1074,8 @@ export default function MarketplacePage() {
   const loading = tab === "sell" ? demands === null : slots === null;
 
   const TAB_CONFIG = [
-    { key: "sell" as Tab, label: "Offers", icon: Package },
-    { key: "buy" as Tab, label: "Requests", icon: ShoppingBag },
+    { key: "sell" as Tab, label: "My posts", icon: Package },
+    { key: "buy" as Tab, label: "My responses", icon: ShoppingBag },
     { key: "local" as Tab, label: "Near me", icon: MapPin },
     { key: "global" as Tab, label: "Anywhere", icon: Globe },
     { key: "categories" as Tab, label: "All", icon: LayoutGrid },
@@ -1089,14 +1089,16 @@ export default function MarketplacePage() {
       <div className="px-4 pt-[max(env(safe-area-inset-top),1.5rem)]">
         <header className="mb-5 flex items-center gap-3">
           <button
-            onClick={() => router.back()}
+            onClick={() => (window.history.length > 1 ? router.back() : router.push("/explore"))}
             aria-label="Back"
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white active:scale-95 dark:border-neutral-800 dark:bg-neutral-900"
           >
             <ArrowLeft className="h-4 w-4 text-neutral-600 dark:text-neutral-400" />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">My posts</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+              {tab === "buy" ? "My responses" : tab === "sell" ? "My posts" : "Explore"}
+            </h1>
             <p className="text-[12px] text-neutral-500">
               {tab === "sell"
                 ? "Requests and offers you’ve posted"
@@ -1119,7 +1121,7 @@ export default function MarketplacePage() {
           {TAB_CONFIG.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
-              onClick={() => router.push(`/explore/${key}`)}
+              onClick={() => router.replace(`/explore/${key}`)}
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors",
                 tab === key

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SideMenu, type SideMenuUser } from "@/components/side-menu";
@@ -18,10 +19,11 @@ const LOGO_URL = "/logo/xivago-transparent-favicon.png";
  * search button into the search drawer.
  */
 export function AppHeader({ user, className }: { user: SideMenuUser; className?: string }) {
-  const search = useSearchDrawer();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const search = useSearchDrawer(rootRef);
 
   return (
-    <div className={cn("relative flex items-center justify-between", className)}>
+    <div ref={rootRef} className={cn("relative flex items-center justify-between", className)}>
       <div className={`flex h-11 w-11 items-center justify-center rounded-full ${GLASS} [&>button]:hover:bg-transparent`}>
         <SideMenu user={user} />
       </div>

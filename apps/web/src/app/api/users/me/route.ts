@@ -28,6 +28,10 @@ const OWN_PROFILE_SELECT = {
   creditBalance: true,
   isVerified: true,
   createdAt: true,
+  headline: true,
+  accountType: true,
+  interestCategoryIds: true,
+  onboarding: true,
   metaLink: { select: { notifPrefs: true, whatsappId: true } },
   subscription: { select: { plan: true, status: true, currentPeriodEnd: true } },
 } as const;

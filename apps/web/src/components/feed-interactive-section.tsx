@@ -12,19 +12,9 @@ import {
   Check,
   SlidersHorizontal,
   Tag,
-  HeartPulse,
-  Wallet,
-  Briefcase,
-  PartyPopper,
-  Plane,
-  GraduationCap,
-  Heart,
-  PawPrint,
-  Gem,
-  ShieldCheck,
-  Network,
-  type LucideIcon,
 } from "lucide-react";
+import { CategoryIcon } from "@/components/category-icons/category-icon";
+import { useCategoryIcons } from "@/lib/category-icons";
 import { FeedList } from "@/components/feed-list";
 import { SwipeDemandDeck } from "@/components/swipe-demand-deck";
 import { BookmarksList } from "@/components/bookmarks-list";
@@ -46,25 +36,7 @@ import { useHaptic } from "@/components/ui/haptic";
 export interface CategoryCardItem {
   id: string;
   name: string;
-  /** Falls back to CATEGORY_ICONS when there's no artwork. */
-  img?: string;
-  imgClass?: string;
 }
-
-/** Main categories (by id) that don't have cutout artwork yet. */
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  "13": HeartPulse,
-  "15": Wallet,
-  "18": ShieldCheck,
-  "20": Briefcase,
-  "22": Network,
-  "23": PartyPopper,
-  "24": Plane,
-  "26": GraduationCap,
-  "27": Heart,
-  "28": PawPrint,
-  "29": Gem,
-};
 
 const TABS = [
   { id: "all", label: "All requests", icon: LayoutGrid },
@@ -93,6 +65,7 @@ export function FeedInteractiveSection({ categoryCards }: FeedInteractiveSection
 
 function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) {
   const searchParams = useSearchParams();
+  const iconPrefs = useCategoryIcons();
   const initialCategory = searchParams.get("category");
   const initialLocal = searchParams.get("local") === "true";
 
@@ -169,11 +142,9 @@ function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) 
         <div className="mb-3 flex items-end justify-between px-5">
           <div>
             <h2 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-white">
-              Categories
-            </h2>
-            <p className="mt-1 text-[13px] text-[#EBEBF5]/60">
               {selectedCategory ? `${selectedSub ? 2 : 1} filter${selectedSub ? "s" : ""} applied` : "Browse by categories"}
-            </p>
+            </h2>
+            
           </div>
           {selectedCategory && (
             <button
@@ -194,31 +165,23 @@ function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) 
                 type="button"
                 onClick={() => handleSelectCategory(isSelected ? null : cat.id)}
                 style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-                className="group flex w-[70px] shrink-0 snap-start flex-col items-center gap-2 text-center transition-transform duration-200 animate-in fade-in slide-in-from-right-4 fill-mode-both active:scale-90"
+                className="group flex w-[84px] shrink-0 snap-start flex-col items-center gap-2 text-center transition-transform duration-200 animate-in fade-in slide-in-from-right-4 fill-mode-both active:scale-90"
               >
                 <span className="relative">
                   {/* App-icon squircle */}
                   <span
                     className={cn(
-                      "flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-[17px] border border-neutral-800 bg-[#111] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      "flex h-[80px] w-[80px] items-center justify-center overflow-hidden rounded-[20px] border border-neutral-800 bg-[#111] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
                       "shadow-[inset_0_-2px_0_rgba(0,0,0,0.06),0_8px_20px_rgba(0,0,0,0.55)]",
                       isSelected ? "scale-[1.06] ring-[3px] ring-[#0A84FF] ring-offset-[3px] ring-offset-black" : "opacity-90 group-hover:opacity-100"
                     )}
                   >
-                    {cat.img ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={cat.img}
-                        alt={cat.name}
-                        loading="lazy"
-                        className={cat.imgClass ?? "h-[48px] w-[48px] object-contain"}
-                      />
-                    ) : (
-                      React.createElement(CATEGORY_ICONS[cat.id] ?? LayoutGrid, {
-                        className: "h-8 w-8 text-black",
-                        strokeWidth: 1.8,
-                      })
-                    )}
+                    <CategoryIcon
+                      categoryId={cat.id}
+                      style={iconPrefs.style}
+                      variant={iconPrefs.picks[cat.id] ?? 0}
+                      className={iconPrefs.style === "lucide" ? "h-10 w-10" : "h-[64px] w-[64px]"}
+                    />
                   </span>
                   {isSelected && (
                     <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-[#0A84FF] animate-in zoom-in-50 duration-200">
@@ -228,7 +191,7 @@ function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) 
                 </span>
                 <span
                   className={cn(
-                    "line-clamp-1 w-full text-[11px] leading-tight tracking-[0.01em] transition-colors",
+                    "line-clamp-1 w-full text-[12px] leading-tight tracking-[0.01em] transition-colors",
                     isSelected ? "font-semibold text-white" : "font-medium text-[#EBEBF5]/60"
                   )}
                 >

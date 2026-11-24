@@ -4,14 +4,14 @@ import type { Session } from "next-auth";
 
 type AuthedRequest = NextRequest & { auth: Session | null };
 
+// Every app page needs a signed-in user; only auth, legal pages and the
+// machine-facing endpoints below are reachable while logged out. Signed-out
+// visitors are sent to /login with a callbackUrl back to where they were going.
 const PUBLIC_PREFIXES = [
-  "/",
   "/login",
   "/signup",
   "/privacy", // legal pages must be readable before sign-up
   "/terms",
-  "/demands", // list + /demands/[id] detail are publicly browsable
-  "/u", // public vendor profiles /u/[id]
   "/api/auth",
   "/api/webhooks",
   "/api/cron",
@@ -20,6 +20,9 @@ const PUBLIC_PREFIXES = [
   "/_next",
   "/favicon.ico",
   "/manifest.json",
+  // Push service worker: browsers refuse a worker script served behind a
+  // redirect, so it must skip the login / trial / onboarding redirects below.
+  "/sw.js",
 ];
 
 const ADMIN_PREFIX = "/admin";
@@ -88,6 +91,19 @@ export default auth((req) => {
 
   if (!user) return unauthenticated(isApi, req);
   if (user.isBanned) return forbidden(isApi, req, "This account has been suspended.");
+
+  // New accounts finish onboarding before anything else. Pages only: API
+  // calls (including the onboarding ones) are never redirected. The cookie
+  // (holding the user id, so it never carries over to another account)
+  // covers the gap between saving onboarding and the token refreshing.
+  if (
+    !isApi &&
+    user.onboarded === false &&
+    !pathname.startsWith("/onboarding") &&
+    req.cookies.get("xv_onboarded")?.value !== user.id
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", req.nextUrl.origin));
+  }
 
   // 7-day free trial access control
   const isPaymentAllowedPath =

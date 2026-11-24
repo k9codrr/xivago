@@ -76,8 +76,6 @@ export function useQrScanner({ readerId, fileReaderId, active, onScanned, qrbox 
       rejectScan(decodedText, "That's not a xivago QR code.");
       return;
     }
-    // Credit transfer QRs are paused:
-    // if (!/^\/u\/[^/]+$/.test(url.pathname) && !/^\/credits\/transfer\/[^/]+$/.test(url.pathname)) {
     if (!/^\/u\/[^/]+\/?$/.test(url.pathname)) {
       rejectScan(decodedText, "Unsupported QR code.");
       return;

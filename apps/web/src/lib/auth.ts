@@ -192,13 +192,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const userId = token.id as string;
         const fresh = await prisma.user.findUnique({
           where: { id: userId },
-          select: { role: true, isBanned: true, phone: true, createdAt: true },
+          select: { role: true, isBanned: true, phone: true, createdAt: true, onboardedAt: true },
         });
         if (fresh) {
           token.role = fresh.role;
           token.isBanned = fresh.isBanned;
           token.phoneVerified = Boolean(fresh.phone);
           token.createdAt = fresh.createdAt.toISOString();
+          token.onboarded = fresh.onboardedAt != null;
         } else {
           // The account was deleted (Settings → Delete my account): end the
           // session everywhere instead of leaving a token for a missing user.

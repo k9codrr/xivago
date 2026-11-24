@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const config = process.env.TUNNEL_CONFIG ?? join(root, "cloudflared", "xivago-app.dev.yml");
-const tunnelId = "debaaa03-f0dc-44b2-915e-8c62e17bba74";
+const tunnelId = "d1cbfe97-db44-4721-b1a9-a8485cc69050";
 const credentials = join(homedir(), ".cloudflared", `${tunnelId}.json`);
 
 const children = [];
@@ -29,7 +29,7 @@ function startTunnel() {
     console.log("[dev] tunnel skipped (cloudflared or tunnel credentials not found on this machine)");
     return;
   }
-  console.log("[dev] starting tunnel → https://app.xivago.com (web :3000, /socket.io → :3001)");
+  console.log("[dev] starting tunnel → https://test.xivago.com (web :3000, /socket.io → :3001)");
   const tunnel = spawn("cloudflared", ["tunnel", "--no-autoupdate", "--config", config, "run"], {
     stdio: ["ignore", "ignore", "pipe"],
     shell: true,

@@ -6,27 +6,18 @@ import { apiError } from "@/lib/api-response";
 const MAX_ENTRIES = 500;
 
 /**
- * Full wallet history for /credits/send: every credit ledger row, plus slot
+ * Full wallet history for /credits: every credit ledger row, plus slot
  * purchases paid directly through Razorpay (those never touch the credit
  * ledger). Credit-paid slots also write a synthetic `cred_slot_*` Payment row
  * (see demands/[id]/slots) -- those are skipped here so the slot isn't listed
  * twice.
  */
 
-type Kind = "SLOT" | "POST_FEE" | "BOOST" | "FEATURED" | "SENT" | "RECEIVED" | "TOP_UP" | "GRANT" | "OTHER";
-
-interface Person {
-  id: string;
-  name: string;
-  avatarUrl: string | null;
-  companyName: string | null;
-}
+type Kind = "SLOT" | "POST_FEE" | "BOOST" | "FEATURED" | "TOP_UP" | "GRANT" | "OTHER";
 
 const PERSON_SELECT = { id: true, name: true, avatarUrl: true, companyName: true } as const;
 
 function ledgerKind(type: string, note: string | null): Kind {
-  if (type === "TRANSFER_OUT") return "SENT";
-  if (type === "TRANSFER_IN") return "RECEIVED";
   if (type === "PURCHASE") return "TOP_UP";
   if (type === "GRANT") return "GRANT";
   if (type === "FEATURED_HOLD" || type === "FEATURED_REFUND") return "FEATURED";
@@ -65,17 +56,12 @@ export async function GET() {
     ]);
     if (!profile) return apiError(404, "NOT_FOUND", "Profile not found.");
 
-    // Resolve every demand and transfer counterpart in two batched queries.
+    // Resolve every referenced demand in one batched query.
     const demandIds = new Set<string>();
-    const personIds = new Set<string>();
-    for (const t of txns) {
-      if (t.demandId) demandIds.add(t.demandId);
-      const other = t.note?.match(/^transfer (?:to|from) (\S+)$/)?.[1];
-      if (other) personIds.add(other);
-    }
+    for (const t of txns) if (t.demandId) demandIds.add(t.demandId);
     for (const p of slotPayments) if (p.demandId) demandIds.add(p.demandId);
 
-    const [demands, people, bids] = await Promise.all([
+    const [demands, bids] = await Promise.all([
       demandIds.size
         ? prisma.demand.findMany({
             where: { id: { in: [...demandIds] } },
@@ -94,7 +80,6 @@ export async function GET() {
             },
           })
         : [],
-      personIds.size ? prisma.user.findMany({ where: { id: { in: [...personIds] } }, select: PERSON_SELECT }) : [],
       demandIds.size
         ? prisma.bid.findMany({
             where: { bidderId: user.id, demandId: { in: [...demandIds] } },
@@ -103,7 +88,6 @@ export async function GET() {
         : [],
     ]);
     const demandById = new Map(demands.map((d) => [d.id, d]));
-    const personById = new Map<string, Person>(people.map((p) => [p.id, p]));
     const bidByDemand = new Map(bids.map((b) => [b.demandId, b]));
 
     function demandDetail(demandId: string | null) {
@@ -116,7 +100,6 @@ export async function GET() {
     const entries = [
       ...txns.map((t) => {
         const kind = ledgerKind(t.type, t.note);
-        const otherId = t.note?.match(/^transfer (?:to|from) (\S+)$/)?.[1];
         const demand = demandDetail(t.demandId);
         const bid = t.demandId && kind === "SLOT" ? bidByDemand.get(t.demandId) : undefined;
         const slotFromNote = t.note?.match(/^slot-purchase-slot-(\d+)$/)?.[1];
@@ -127,7 +110,7 @@ export async function GET() {
           credits: t.amount,
           rupeesPaise: null as number | null,
           refunded: false,
-          person: otherId ? (personById.get(otherId) ?? null) : kind === "SLOT" ? (demand?.author ?? null) : null,
+          person: kind === "SLOT" ? (demand?.author ?? null) : null,
           demand,
           slot:
             kind === "SLOT"

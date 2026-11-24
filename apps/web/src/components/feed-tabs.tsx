@@ -7,29 +7,7 @@ import { getHeroSlides } from "@/lib/featured";
 import { maskDemandAuthor } from "@/lib/demand-privacy";
 import { ScrollToTop } from "@/components/scroll-to-top";
 
-/* ── Category cutouts (transparent 3D stickers in public/categories) ── */
-const CATEGORY_CARDS: { id: string; name: string; img?: string; imgClass?: string }[] = [
-  { id: "13", name: "Health", img: "/categories/health.png" },
-  { id: "14", name: "Legal", img: "/categories/legal.png" },
-  { id: "15", name: "Finance", img: "/categories/finance.png" },
-  { id: "16", name: "Real Estate", img: "/categories/real-estate.png" },
-  { id: "17", name: "Immigration", img: "/categories/immigration.png" },
-  { id: "18", name: "IP & Patents", img: "/categories/ip-patents.png" },
-  { id: "19", name: "Business", img: "/categories/business.png" },
-  { id: "20", name: "Career", img: "/categories/career.png" },
-  { id: "21", name: "Spiritual", img: "/categories/spiritual.png" },
-  { id: "22", name: "B2B Experts", img: "/categories/b2b.png" },
-  { id: "23", name: "Events", img: "/categories/events.png" },
-  { id: "24", name: "Travel", img: "/categories/travel.png" },
-  { id: "25", name: "Tech", img: "/categories/tech.png" },
-  { id: "26", name: "Education", img: "/categories/education.png" },
-  { id: "27", name: "Family", img: "/categories/family.png" },
-  { id: "28", name: "Pets", img: "/categories/pets.png" },
-  { id: "29", name: "Beauty", img: "/categories/beauty.png" },
-  { id: "30", name: "Creative", img: "/categories/creative.png" },
-  { id: "8", name: "Customers", img: "/categories/customers.png" },
-  { id: "10", name: "Data", img: "/categories/data.png" },
-];
+import { HOME_CATEGORIES } from "@/lib/home-categories";
 
 export default async function FeedTabs() {
   const user = await getOptionalUser();
@@ -88,7 +66,7 @@ export default async function FeedTabs() {
       </section>
 
       {/* Interactive Categories, Local 25km Filter, & Demands Tabs */}
-      <FeedInteractiveSection categoryCards={CATEGORY_CARDS} />
+      <FeedInteractiveSection categoryCards={HOME_CATEGORIES} />
     </main>
   );
 }

@@ -56,15 +56,11 @@ function clip(text: string, max: number): string {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
-function creditLabel(type: CreditType, note: string | null, counterpart: PersonRef | null): string {
+function creditLabel(type: CreditType, note: string | null): string {
   const n = note ?? "";
   switch (type) {
     case "PURCHASE":
       return "Bought credits";
-    case "TRANSFER_IN":
-      return counterpart ? `Received from ${counterpart.name ?? "a user"}` : "Credits received";
-    case "TRANSFER_OUT":
-      return counterpart ? `Sent to ${counterpart.name ?? "a user"}` : "Credits sent";
     case "FEATURED_HOLD":
       return "Featured bid placed";
     case "FEATURED_REFUND":
@@ -158,20 +154,11 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    // Resolve transfer counterparts ("transfer to <id>" / "transfer from <id>").
-    const counterpartIds = new Set<string>();
-    for (const c of credits) {
-      const m = c.note?.match(/^transfer (?:to|from) (\S+)$/);
-      if (m) counterpartIds.add(m[1]!);
-    }
     // Resolve reaction targets (polymorphic, no relation).
     const postTargetIds = reactions.filter((r) => r.targetType === "MESSAGE").map((r) => r.targetId);
     const commentTargetIds = reactions.filter((r) => r.targetType === "COMMENT").map((r) => r.targetId);
 
-    const [counterparts, reactedPosts, reactedComments] = await Promise.all([
-      counterpartIds.size
-        ? prisma.user.findMany({ where: { id: { in: [...counterpartIds] } }, select: PERSON.select })
-        : Promise.resolve([]),
+    const [reactedPosts, reactedComments] = await Promise.all([
       postTargetIds.length
         ? prisma.forumMessage.findMany({
             where: { id: { in: postTargetIds } },
@@ -185,7 +172,6 @@ export async function GET(req: NextRequest) {
           })
         : Promise.resolve([]),
     ]);
-    const personById = new Map(counterparts.map((p) => [p.id, p]));
     const postById = new Map(reactedPosts.map((p) => [p.id, p]));
     const commentById = new Map(reactedComments.map((c) => [c.id, c]));
 
@@ -193,17 +179,15 @@ export async function GET(req: NextRequest) {
     const items: ActivityItem[] = [];
 
     for (const c of credits) {
-      const m = c.note?.match(/^transfer (?:to|from) (\S+)$/);
-      const counterpart = m ? (personById.get(m[1]!) ?? null) : null;
       items.push({
         id: `credit:${c.id}`,
         kind: "credit",
-        title: creditLabel(c.type, c.note, counterpart),
+        title: creditLabel(c.type, c.note),
         detail: null,
         amount: c.amount,
-        url: counterpart ? `/u/${counterpart.id}` : c.demandId ? `/demands/${c.demandId}` : null,
+        url: c.demandId ? `/demands/${c.demandId}` : null,
         createdAt: c.createdAt.toISOString(),
-        person: counterpart,
+        person: null,
       });
     }
     for (const d of demands) {

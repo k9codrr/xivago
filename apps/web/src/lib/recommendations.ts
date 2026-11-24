@@ -57,7 +57,7 @@ async function loadSignals(viewerId: string): Promise<ViewerSignals> {
   const [me, engaged, saved, bids, follows, reactions] = await Promise.all([
     prisma.user.findUnique({
       where: { id: viewerId },
-      select: { categorySubIds: true, categoryProviderIds: true, categoryProblemIds: true },
+      select: { categorySubIds: true, categoryProviderIds: true, categoryProblemIds: true, interestCategoryIds: true },
     }),
     prisma.demandEngagement.findMany({
       where: { viewerKey: `u:${viewerId}`, day: { gte: since } },
@@ -105,7 +105,8 @@ async function loadSignals(viewerId: string): Promise<ViewerSignals> {
   }
   return {
     subs,
-    parents: new Set([...subs, ...interestSubs].map(parentOf)),
+    // Main categories a buyer picked at onboarding count as interests too.
+    parents: new Set([...[...subs, ...interestSubs].map(parentOf), ...(me?.interestCategoryIds ?? [])]),
     interestSubs,
     followed: new Set(follows.map((f) => f.followingId)),
     likedAuthors: new Set(likedPosts.map((p) => p.senderId)),

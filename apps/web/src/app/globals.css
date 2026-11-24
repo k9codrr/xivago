@@ -266,3 +266,11 @@ html {
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
 }
+
+/* Hide scrollbars on horizontally/vertically scrolling strips while keeping them scrollable. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}

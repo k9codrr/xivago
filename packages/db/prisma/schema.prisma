@@ -36,18 +36,9 @@ enum CreditType {
   GRANT
   PURCHASE
   BOOST
-  TRANSFER_IN
-  TRANSFER_OUT
   FEATURED_HOLD
   FEATURED_REFUND
   PAYMENT_REFUND // credits taken back when an admin refunds a top-up to the user's bank
-}
-
-enum TransferStatus {
-  PENDING
-  COMPLETED
-  EXPIRED
-  CANCELLED
 }
 
 enum SubscriptionPlan {
@@ -136,6 +127,22 @@ model User {
   baseProfile       Json?
   influencerProfile Json?
 
+  // --- Onboarding (app/onboarding) ---
+  // Null until the user finishes the post-signup onboarding flow; middleware
+  // sends signed-in users without it to /onboarding. Accounts that existed
+  // before the flow shipped were backfilled with their createdAt.
+  onboardedAt         DateTime?
+  // "INDIVIDUAL" | "BUSINESS": whether the profile acts for a person or a company.
+  accountType         String?
+  // Main category ids (lib/categories.ts) a buyer said they're looking for.
+  interestCategoryIds String[]  @default([])
+  // Providers: the one line shown under their name.
+  headline            String?   @db.VarChar(60)
+  // Everything else asked during onboarding (goal, team size, GSTIN,
+  // experience, languages, work modes, price, licence, work photos,
+  // email/phone preferences); see lib/onboarding.ts for the shape.
+  onboarding          Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -173,8 +180,6 @@ model User {
   ratingsReceived        Rating[]                @relation("RatingsReceived")
   // --- Poll extension ---
   forumPollVotes         ForumPollVote[]
-  // --- Credit transfer extension ---
-  creditTransferRequests CreditTransferRequest[]
   // --- Refer & earn + Spin & Win ---
   referralCode           String?                 @unique
   referredById           String?
@@ -937,7 +942,7 @@ model Notification {
   title     String
   body      String
   url       String? // in-app path opened on tap
-  entityId  String? // the post/demand/transfer it's about -- used to collapse repeats
+  entityId  String? // the post/demand it's about -- used to collapse repeats
   data      Json?
   readAt    DateTime?
   pushedAt  DateTime?
@@ -986,21 +991,6 @@ model Rating {
   @@unique([bidId, raterId])
   @@index([ratedUserId])
   @@map("ratings")
-}
-
-// --- P2P credit transfer via QR ---
-model CreditTransferRequest {
-  id          String         @id @default(cuid())
-  requesterId String
-  requester   User           @relation(fields: [requesterId], references: [id], onDelete: Cascade)
-  amount      Int? // null = sender chooses the amount when scanning
-  token       String         @unique
-  status      TransferStatus @default(PENDING)
-  expiresAt   DateTime
-  createdAt   DateTime       @default(now())
-
-  @@index([requesterId, createdAt])
-  @@map("credit_transfer_requests")
 }
 
 // --- Spin & Win: one row per spin, the prize is credited via applyCreditDelta ---

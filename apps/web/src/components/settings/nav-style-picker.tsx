@@ -3,9 +3,9 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/components/ui/haptic";
-import { NAV_STYLES, setNavStyle, useNavStyle, type NavStyle } from "@/lib/nav-style";
+import { NAV_STYLES, type NavStyle } from "@/lib/nav-style";
 
-const LABELS: Record<NavStyle, { title: string; hint: string }> = {
+export const NAV_STYLE_LABELS: Record<NavStyle, { title: string; hint: string }> = {
   glass: { title: "Glass", hint: "Floating glass bar, icons stay in place" },
   modern: { title: "Modern", hint: "Sliding bar, selected tab in the center" },
 };
@@ -40,8 +40,7 @@ function ModernPreview() {
   );
 }
 
-export function NavStylePicker() {
-  const current = useNavStyle();
+export function NavStylePicker({ value: current, onChange }: { value: NavStyle; onChange: (v: NavStyle) => void }) {
   const tap = useHaptic("light");
 
   return (
@@ -56,7 +55,7 @@ export function NavStylePicker() {
             aria-checked={selected}
             onClick={() => {
               tap();
-              setNavStyle(style);
+              onChange(style);
             }}
             className={cn(
               "flex flex-col gap-3 rounded-[20px] border-2 p-3 text-left transition-colors",
@@ -68,8 +67,8 @@ export function NavStylePicker() {
             <div className="mx-auto w-[72%]">{style === "glass" ? <GlassPreview /> : <ModernPreview />}</div>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold">{LABELS[style].title}</p>
-                <p className="text-[12px] leading-snug text-neutral-500">{LABELS[style].hint}</p>
+                <p className="text-[15px] font-semibold">{NAV_STYLE_LABELS[style].title}</p>
+                <p className="text-[12px] leading-snug text-neutral-500">{NAV_STYLE_LABELS[style].hint}</p>
               </div>
               <span
                 className={cn(

@@ -15,7 +15,6 @@ import {
   QrCode,
   ScanQrCode,
   Search,
-  Send,
   Zap,
 } from "lucide-react";
 import { formatPaise } from "@/lib/money";
@@ -25,7 +24,7 @@ import { AddCreditsModal } from "@/components/add-credits-modal";
 import { QrScannerModal } from "@/components/qr-scanner-modal";
 import { ProfileQrModal } from "@/components/profile-qr-modal";
 
-type SpendCategory = "POSTING" | "BOOSTS" | "SLOTS" | "SENT" | "OTHER";
+type SpendCategory = "POSTING" | "BOOSTS" | "SLOTS" | "OTHER";
 
 interface Wallet {
   profile: {
@@ -36,7 +35,7 @@ interface Wallet {
     subscription: { plan: "FREE" | "PRO"; status: string; currentPeriodEnd: string | null } | null;
   };
   spending: Record<SpendCategory, number>;
-  received: { key: string; type: string; name: string | null; avatarUrl: string | null }[];
+  received: { key: string; type: string }[];
 }
 
 // Same order and colours as the bars in the wallet design.
@@ -44,7 +43,6 @@ const SPEND_BARS: { key: SpendCategory; label: string; color: string }[] = [
   { key: "POSTING", label: "Posting fees", color: "#6522f5" },
   { key: "BOOSTS", label: "Featured boosts", color: "#f05a5a" },
   { key: "SLOTS", label: "Response spots", color: "#23a948" },
-  { key: "SENT", label: "Sent", color: "#f5c518" },
   { key: "OTHER", label: "Other", color: "#2d8cf0" },
 ];
 
@@ -257,15 +255,10 @@ function CheckoutWallet() {
               wallet.received.map((r) => (
                 <span
                   key={r.key}
-                  title={r.name ?? (r.type === "PURCHASE" ? "Top-up" : "Grant")}
+                  title={r.type === "PURCHASE" ? "Top-up" : "Grant"}
                   className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-xs font-bold text-black"
                 >
-                  {r.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.avatarUrl} alt={r.name ?? ""} className="h-full w-full object-cover" />
-                  ) : r.name ? (
-                    initials(r.name)
-                  ) : r.type === "PURCHASE" ? (
+                  {r.type === "PURCHASE" ? (
                     <CreditCard className="h-4 w-4" />
                   ) : (
                     <Gift className="h-4 w-4" />
@@ -297,14 +290,6 @@ function CheckoutWallet() {
             <Plus className="h-6 w-6" />
           </button>
         </div>
-        {/* Credit send/receive paused
-        <Link href="/credits/send" className="flex flex-1 flex-col justify-between rounded-[22px] bg-[#1c1c1e] p-4">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2c2c2e]">
-            <Send className="h-5 w-5" />
-          </span>
-          <span className="text-[15px] font-medium">Send &amp; Receive</span>
-        </Link>
-        */}
         <Link href="/explore" className="flex flex-1 flex-col justify-between rounded-[22px] bg-[#1c1c1e] p-4">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2c2c2e]">
             <LayoutGrid className="h-5 w-5" />

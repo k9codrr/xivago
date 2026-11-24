@@ -202,13 +202,13 @@ export default async function ProfilePage() {
           <h2 className={sectionTitle}>Activity</h2>
           <nav className={`${groupCard} overflow-hidden`}>
             <MenuRow
-              href="/my-demands"
+              href="/explore/sell"
               icon={<ListChecks className="h-4 w-4" />}
               tint="from-sky-400 to-blue-600"
               label="My posts"
             />
             <MenuRow
-              href="/my-slots"
+              href="/explore/buy"
               icon={<CalendarClock className="h-4 w-4" />}
               tint="from-orange-400 to-orange-600"
               label="My responses"

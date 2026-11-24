@@ -7,12 +7,10 @@ import {
   EXPLORE_ICON_BASE,
   EXPLORE_ICON_SETS,
   PINTEREST_ICONS_READY,
-  setExploreIcons,
-  useExploreIcons,
   type ExploreIconSet,
 } from "@/lib/explore-icons";
 
-const LABELS: Record<ExploreIconSet, { title: string; hint: string }> = {
+export const EXPLORE_ICON_LABELS: Record<ExploreIconSet, { title: string; hint: string }> = {
   color: { title: "Colour 3D", hint: "Bright, playful icons" },
   metal: { title: "Metallic", hint: "Chrome & gold finish" },
   pinterest: { title: "Pinterest", hint: "Curated 3D picks" },
@@ -40,8 +38,7 @@ function Preview({ set, disabled }: { set: ExploreIconSet; disabled: boolean }) 
   );
 }
 
-export function ExploreIconsPicker() {
-  const current = useExploreIcons();
+export function ExploreIconsPicker({ value: current, onChange }: { value: ExploreIconSet; onChange: (v: ExploreIconSet) => void }) {
   const tap = useHaptic("light");
 
   return (
@@ -59,7 +56,7 @@ export function ExploreIconsPicker() {
             disabled={disabled}
             onClick={() => {
               tap();
-              setExploreIcons(set);
+              onChange(set);
             }}
             className={cn(
               "flex flex-col gap-2.5 rounded-[18px] border-2 p-2.5 text-left transition-colors",
@@ -72,8 +69,8 @@ export function ExploreIconsPicker() {
             <Preview set={set} disabled={disabled} />
             <div className="flex items-start justify-between gap-1.5">
               <div className="min-w-0">
-                <p className="truncate text-[13.5px] font-semibold">{LABELS[set].title}</p>
-                <p className="text-[11px] leading-snug text-neutral-500">{disabled ? "Coming soon" : LABELS[set].hint}</p>
+                <p className="truncate text-[13.5px] font-semibold">{EXPLORE_ICON_LABELS[set].title}</p>
+                <p className="text-[11px] leading-snug text-neutral-500">{disabled ? "Coming soon" : EXPLORE_ICON_LABELS[set].hint}</p>
               </div>
               <span
                 className={cn(

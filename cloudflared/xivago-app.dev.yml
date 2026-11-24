@@ -3,18 +3,18 @@
 #
 # One tunnel, one hostname: socket.io traffic is routed by path to the
 # realtime server, everything else to Next.js. So the web app and the socket
-# share https://app.xivago.com (NEXT_PUBLIC_SOCKET_URL="https://app.xivago.com").
+# share https://test.xivago.com (NEXT_PUBLIC_SOCKET_URL="https://test.xivago.com").
 #
 # credentials-file is omitted on purpose: cloudflared then reads
 # ~/.cloudflared/<tunnel-id>.json, so no machine-specific path lives here.
-tunnel: debaaa03-f0dc-44b2-915e-8c62e17bba74
+tunnel: d1cbfe97-db44-4721-b1a9-a8485cc69050
 
 ingress:
   # Realtime server (apps/realtime, SOCKET_PORT=3001)
-  - hostname: app.xivago.com
+  - hostname: test.xivago.com
     path: ^/socket\.io
     service: http://localhost:3001
   # Next.js (apps/web)
-  - hostname: app.xivago.com
+  - hostname: test.xivago.com
     service: http://localhost:3000
   - service: http_status:404

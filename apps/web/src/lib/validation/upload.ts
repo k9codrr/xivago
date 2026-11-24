@@ -29,7 +29,7 @@ export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024; // 10MB
 /** @deprecated Use MAX_IMAGE_BYTES or MAX_VIDEO_BYTES instead. */
 export const MAX_UPLOAD_BYTES = MAX_IMAGE_BYTES;
 
-export const uploadKindSchema = z.enum(["avatar", "logo", "forum", "chat", "community", "demand"]);
+export const uploadKindSchema = z.enum(["avatar", "logo", "forum", "chat", "community", "demand", "portfolio"]);
 
 export const uploadSignSchema = z.object({
   kind: uploadKindSchema,

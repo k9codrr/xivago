@@ -1,156 +1,12 @@
-// import { redirect } from "next/navigation";
-
-// // Sending and receiving credits is paused. To restore: delete this stub and uncomment below.
-// export default function SendCreditsPaused() {
-//   redirect("/activity");
-// }
-
-// --- Original implementation, commented out while credit sending/receiving is paused ---
-
-// ── Previous Send / Receive page (kept for reference; replaced by the wallet design below) ──
-// "use client";
-//
-// import { useState } from "react";
-// import { useRouter } from "next/navigation";
-// import { toast } from "sonner";
-// import { ChevronLeft, Loader2, QrCode as QrCodeIcon, ScanLine, Coins } from "lucide-react";
-// import { QRCodeSVG } from "qrcode.react";
-// import { cn } from "@/lib/utils";
-// import { QrScannerModal } from "@/components/qr-scanner-modal";
-// import { AddCreditsModal } from "@/components/add-credits-modal";
-//  
-// export default function SendCreditsPage() {
-//   const router = useRouter();
-//   const [mode, setMode] = useState<"receive" | "send">("receive");
-//   const [amount, setAmount] = useState("");
-//   const [generating, setGenerating] = useState(false);
-//   const [qrUrl, setQrUrl] = useState<string | null>(null);
-//   const [scannerOpen, setScannerOpen] = useState(false);
-//   const [topUpOpen, setTopUpOpen] = useState(false);
-//
-//   async function handleGenerate() {
-//     setGenerating(true);
-//     try {
-//       const amt = amount.trim() ? parseInt(amount, 10) : undefined;
-//       const res = await fetch("/api/credits/transfer", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({ amount: amt }),
-//       });
-//       const data = await res.json();
-//       if (!res.ok) {
-//         toast.error(data?.error?.message ?? "Could not generate a QR code.");
-//         return;
-//       }
-//       setQrUrl(`${window.location.origin}${data.url}`);
-//     } finally {
-//       setGenerating(false);
-//     }
-//   }
-//
-//   return (
-//     <main className="min-h-dvh bg-neutral-950 pb-16 dark:bg-black">
-//       <header className="flex items-center gap-3 px-4 py-3">
-//         <button type="button" onClick={() => router.back()} aria-label="Back" className="text-neutral-300">
-//           <ChevronLeft className="h-5 w-5" />
-//         </button>
-//         <h1 className="text-lg font-bold text-white">Send Credits</h1>
-//       </header>
-//
-//       <div className="mx-4 flex gap-2 rounded-full bg-neutral-900 p-1">
-//         {(["receive", "send"] as const).map((m) => (
-//           <button
-//             key={m}
-//             type="button"
-//             onClick={() => setMode(m)}
-//             className={cn(
-//               "flex-1 rounded-full py-2 text-sm font-semibold capitalize",
-//               mode === m ? "bg-white text-black" : "text-neutral-400",
-//             )}
-//           >
-//             {m}
-//           </button>
-//         ))}
-//       </div>
-//
-//       {mode === "receive" && (
-//         <div className="flex flex-col items-center gap-4 px-6 py-8">
-//           {!qrUrl ? (
-//             <>
-//               <QrCodeIcon className="h-10 w-10 text-amber-400" />
-//               <p className="text-center text-sm text-neutral-400">
-//                 Generate a QR code so someone can send you credits directly.
-//               </p>
-//               <input
-//                 value={amount}
-//                 onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-//                 placeholder="Amount (leave blank to let them choose)"
-//                 className="w-full rounded-xl bg-neutral-900 px-3.5 py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none"
-//               />
-//               <button
-//                 type="button"
-//                 onClick={handleGenerate}
-//                 disabled={generating}
-//                 className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 py-3 text-sm font-bold text-black disabled:opacity-50"
-//               >
-//                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate QR code"}
-//               </button>
-//             </>
-//           ) : (
-//             <>
-//               <div className="rounded-2xl bg-white p-4">
-//                 <QRCodeSVG value={qrUrl} size={220} />
-//               </div>
-//               <p className="text-xs text-neutral-500">Expires in 15 minutes</p>
-//               <button type="button" onClick={() => setQrUrl(null)} className="text-xs text-neutral-400 underline">
-//                 Generate a new one
-//               </button>
-//             </>
-//           )}
-//         </div>
-//       )}
-//
-//       {mode === "send" && (
-//         <div className="flex flex-col items-center gap-4 px-6 py-8">
-//           <ScanLine className="h-10 w-10 text-amber-400" />
-//           <p className="text-center text-sm text-neutral-400">
-//             Scan someone&apos;s credits QR code to send them credits.
-//           </p>
-//           <button
-//             type="button"
-//             onClick={() => setScannerOpen(true)}
-//             className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 py-3 text-sm font-bold text-black"
-//           >
-//             <ScanLine className="h-4 w-4" /> Open scanner
-//           </button>
-//         </div>
-//       )}
-//
-//       <div className="mx-4 mt-2 rounded-2xl border border-neutral-800 p-4">
-//         <button
-//           type="button"
-//           onClick={() => setTopUpOpen(true)}
-//           className="flex w-full items-center justify-center gap-2 rounded-full border border-neutral-700 py-2.5 text-sm font-semibold text-white"
-//         >
-//           <Coins className="h-4 w-4 text-amber-400" /> Add credits via UPI / Card
-//         </button>
-//       </div>
-//
-//       <QrScannerModal open={scannerOpen} onClose={() => setScannerOpen(false)} />
-//       <AddCreditsModal open={topUpOpen} onClose={() => setTopUpOpen(false)} />
-//     </main>
-//   );
-// }
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowDownLeft,
+  ArrowLeft,
   ArrowUpRight,
-  Bell,
   ChevronDown,
   CreditCard,
   Gift,
@@ -160,14 +16,12 @@ import {
   RefreshCw,
   Zap,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
 import { formatPaise } from "@/lib/money";
-import { QrScannerModal } from "@/components/qr-scanner-modal";
 import { AddCreditsModal } from "@/components/add-credits-modal";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 
-type Kind = "SLOT" | "POST_FEE" | "BOOST" | "FEATURED" | "SENT" | "RECEIVED" | "TOP_UP" | "GRANT" | "OTHER";
+type Kind = "SLOT" | "POST_FEE" | "BOOST" | "FEATURED" | "TOP_UP" | "GRANT" | "OTHER";
 
 interface Person {
   id: string;
@@ -220,16 +74,12 @@ const KIND_LABEL: Record<Kind, string> = {
   POST_FEE: "Posting fee",
   BOOST: "Featured boost",
   FEATURED: "Featured placement",
-  SENT: "Credits sent",
-  RECEIVED: "Credits received",
   TOP_UP: "Credits top-up",
   GRANT: "Welcome credits",
   OTHER: "Credit adjustment",
 };
 
 function entryTitle(e: HistoryEntry): string {
-  if (e.kind === "SENT") return e.person ? `Sent to ${e.person.name}` : "Credits sent";
-  if (e.kind === "RECEIVED") return e.person ? `From ${e.person.name}` : "Credits received";
   if (e.kind === "SLOT") return e.slot?.number ? `Response spot #${e.slot.number}` : "Response spot";
   return KIND_LABEL[e.kind];
 }
@@ -295,7 +145,6 @@ function EntryImage({ entry, size = 44 }: { entry: HistoryEntry; size?: number }
     : entry.kind === "GRANT" ? Gift
     : entry.kind === "BOOST" || entry.kind === "FEATURED" ? Zap
     : entry.kind === "POST_FEE" ? Megaphone
-    : entry.kind === "RECEIVED" ? ArrowDownLeft
     : ArrowUpRight;
 
   return (
@@ -329,19 +178,13 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
-export default function SendCreditsPage() {
+export default function CreditsWalletPage() {
+  const router = useRouter();
   const [history, setHistory] = useState<History | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
   const [viewAll, setViewAll] = useState(false);
   const [selected, setSelected] = useState<HistoryEntry | null>(null);
-
-  // Existing receive / send / top-up flows, unchanged.
-  const [receiveOpen, setReceiveOpen] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [qrUrl, setQrUrl] = useState<string | null>(null);
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [topUpOpen, setTopUpOpen] = useState(false);
 
   const loadHistory = useCallback(async () => {
@@ -359,35 +202,24 @@ export default function SendCreditsPage() {
     void loadHistory();
   }, [loadHistory]);
 
-  async function handleGenerate() {
-    setGenerating(true);
-    try {
-      const amt = amount.trim() ? parseInt(amount, 10) : undefined;
-      const res = await fetch("/api/credits/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amt }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data?.error?.message ?? "Could not generate a QR code.");
-        return;
-      }
-      setQrUrl(`${window.location.origin}${data.url}`);
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   const months = useMemo(() => groupByMonth(history?.entries ?? []), [history]);
   const visibleMonths = viewAll ? months : months.slice(0, 1);
   const balance = history?.profile.creditBalance ?? 0;
 
   return (
-    <main className="min-h-dvh bg-white pt-3 pb-28 text-black">
+    <main className="min-h-dvh bg-white pb-10 pt-[max(env(safe-area-inset-top),0.75rem)] text-black">
       {/* ── Balance card ── */}
       <section className="mx-3 rounded-[40px] bg-gradient-to-b from-[#2b2b2b] via-[#141414] to-black px-5 pb-6 pt-5 text-white">
         <div className="flex items-center justify-between">
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <Link
             href="/profile"
             className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#e9e2d0] text-sm font-bold text-black"
@@ -399,13 +231,7 @@ export default function SendCreditsPage() {
               initials(history.profile.name)
             ) : null}
           </Link>
-          <Link
-            href="/chats"
-            aria-label="Messages"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5"
-          >
-            <Bell className="h-5 w-5" />
-          </Link>
+          <span className="text-[15px] font-semibold">Credits wallet</span>
         </div>
 
         <div className="mt-10 flex flex-col items-center">
@@ -427,32 +253,17 @@ export default function SendCreditsPage() {
           </p>
         </div>
 
-        <div className="mt-20 flex items-center justify-center gap-4">
+        <div className="mt-16 flex justify-center">
           <button
             type="button"
-            onClick={() => setReceiveOpen(true)}
-            className="flex h-12 w-28 items-center justify-center gap-2 rounded-full border border-white/15 bg-gradient-to-b from-[#1f1f1f] to-black text-[13px] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-          >
-            <ArrowDownLeft className="h-4 w-4" /> Receive
-          </button>
-          <button
-            type="button"
-            aria-label="Add credits"
             onClick={() => setTopUpOpen(true)}
-            className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-gradient-to-b from-[#2a2a2a] to-black shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+            className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-b from-[#2a2a2a] to-black px-6 text-[14px] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
           >
-            <Plus className="h-8 w-8" strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setScannerOpen(true)}
-            className="flex h-12 w-28 items-center justify-center gap-2 rounded-full border border-white/15 bg-gradient-to-b from-[#1f1f1f] to-black text-[13px] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-          >
-            <ArrowUpRight className="h-4 w-4" /> Send
+            <Plus className="h-5 w-5" strokeWidth={1.75} /> Add credits
           </button>
         </div>
 
-        <div className="mt-14 flex justify-center">
+        <div className="mt-10 flex justify-center">
           <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[13px]">
             <span className={cn("h-1.5 w-1.5 rounded-full", syncing ? "bg-amber-400" : "bg-mint")} />
             {syncing ? "Syncing…" : "Synchronized"}
@@ -539,55 +350,7 @@ export default function SendCreditsPage() {
         </DrawerContent>
       </Drawer>
 
-      {/* ── Receive (existing QR request flow) ── */}
-      <Drawer
-        open={receiveOpen}
-        onOpenChange={(o) => {
-          if (!o) {
-            setReceiveOpen(false);
-            setQrUrl(null);
-          }
-        }}
-      >
-        <DrawerContent className="mx-auto max-w-md rounded-t-3xl border-neutral-800 bg-[#0a0a0a] p-5 text-white">
-          <DrawerTitle className="text-lg font-bold text-white">Receive Credits</DrawerTitle>
-          <DrawerDescription className="text-xs text-neutral-400">
-            Generate a QR code so someone can send you credits directly.
-          </DrawerDescription>
-          <div className="flex flex-col items-center gap-4 py-6">
-            {!qrUrl ? (
-              <>
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Amount (leave blank to let them choose)"
-                  className="w-full rounded-xl bg-neutral-900 px-3.5 py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 py-3 text-sm font-bold text-black disabled:opacity-50"
-                >
-                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate QR code"}
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="rounded-2xl bg-white p-4">
-                  <QRCodeSVG value={qrUrl} size={220} />
-                </div>
-                <p className="text-xs text-neutral-500">Expires in 15 minutes</p>
-                <button type="button" onClick={() => setQrUrl(null)} className="text-xs text-neutral-400 underline">
-                  Generate a new one
-                </button>
-              </>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
 
-      <QrScannerModal open={scannerOpen} onClose={() => setScannerOpen(false)} />
       <AddCreditsModal
         open={topUpOpen}
         onClose={() => setTopUpOpen(false)}
@@ -637,7 +400,7 @@ function EntryDetail({ entry }: { entry: HistoryEntry }) {
           {entry.rupeesPaise != null ? "Razorpay" : `${Math.abs(entry.credits).toLocaleString("en-IN")} credits`}
         </DetailRow>
         {entry.person && (
-          <DetailRow label={entry.kind === "RECEIVED" ? "From" : entry.kind === "SLOT" ? "Request by" : "To"}>
+          <DetailRow label="Request by">
             <Link href={`/u/${entry.person.id}`} className="font-medium underline-offset-2 hover:underline">
               {entry.person.name}
             </Link>

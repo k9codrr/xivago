@@ -161,7 +161,7 @@ export default function TopUpRefundsPage() {
       <header className="sticky top-0 z-20 grid grid-cols-[3rem_1fr_3rem] items-center bg-black/80 px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur-xl">
         <button
           type="button"
-          onClick={() => (window.history.length > 1 ? router.back() : router.push("/credits/send"))}
+          onClick={() => (window.history.length > 1 ? router.back() : router.push("/credits"))}
           aria-label="Back"
           className="flex h-11 w-11 items-center justify-center rounded-full active:bg-white/10"
         >

@@ -44,7 +44,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
       </div>
       <div id={FILE_READER_ELEMENT_ID} className="hidden" />
       <p className="px-4 pb-5 text-center text-xs text-neutral-400">
-        Point your camera at a xivago profile or credits QR code.
+        Point your camera at a xivago profile QR code.
       </p>
       <div className="flex items-start justify-center gap-10 px-4 pb-[max(env(safe-area-inset-bottom),2rem)]">
         <button

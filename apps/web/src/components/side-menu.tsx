@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AudioLines,
@@ -13,7 +14,7 @@ import {
   FileText,
   HelpCircle,
   LogOut,
-  QrCode,
+  Wallet,
   Receipt,
   Rocket,
   Settings,
@@ -23,6 +24,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { forgetPushTokenOnSignOut } from "@/lib/push-client";
 import { Haptic, useHaptic } from "@/components/ui/haptic";
 import { ThemeToggle } from "./theme-toggle";
 import { AddCreditsModal } from "@/components/add-credits-modal";
@@ -94,10 +96,10 @@ const MENU_ITEMS = [
   // { href: "/premium", label: "Premium", icon: Crown },
   { href: "/bookmarks", label: "Bookmarks", icon: Bookmark },
   { href: "/communities", label: "Communities", icon: Users },
-  { href: "/my-slots", label: "Orders", icon: Receipt },
+  { href: "/explore/buy", label: "Orders", icon: Receipt },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/featured", label: "Feature a Post", icon: Sparkles },
-  { href: "/credits/send", label: "Send Credits", icon: QrCode },
+  { href: "/credits", label: "Wallet", icon: Wallet },
 ];
 
 const FOOTER_ITEMS = [
@@ -156,6 +158,21 @@ export function SideMenu({ user }: { user: SideMenuUser }) {
   }, [open]);
 
   const tap = useHaptic("light");
+
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  async function handleLogout() {
+    if (signingOut) return;
+    tap();
+    setSigningOut(true);
+    try {
+      // Unlink this device's push token while the session still exists.
+      await forgetPushTokenOnSignOut().catch(() => {});
+    } finally {
+      setOpen(false);
+      await signOut({ callbackUrl: "/login" });
+    }
+  }
 
   function closeAndNavigate(href: string) {
     tap();
@@ -310,14 +327,15 @@ export function SideMenu({ user }: { user: SideMenuUser }) {
 
                     <SidebarMenuItem>
                       <SidebarMenuButton
-                        onClick={() => closeAndNavigate("/logout")}
+                        onClick={() => void handleLogout()}
+                        disabled={signingOut}
                         className={cn(
                           ROW,
                           "font-normal text-red-500 hover:bg-red-50 hover:text-red-500 active:bg-red-50 active:text-red-500 dark:hover:bg-red-950/30 dark:active:bg-red-950/30",
                         )}
                       >
                         <LogOut strokeWidth={1.8} />
-                        <span>Log out</span>
+                        <span>{signingOut ? "Logging out…" : "Log out"}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </SidebarMenu>

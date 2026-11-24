@@ -11,6 +11,7 @@ declare module "next-auth" {
       phoneVerified: boolean;
       createdAt: string;
       isPro: boolean;
+      onboarded: boolean;
     } & DefaultSession["user"];
   }
 
@@ -30,5 +31,6 @@ declare module "next-auth/jwt" {
     phoneVerified: boolean;
     createdAt: string;
     isPro: boolean;
+    onboarded?: boolean;
   }
 }

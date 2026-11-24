@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronRight, Receipt } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getOptionalUser } from "@/lib/guards";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Invoices" };
 
@@ -18,8 +19,8 @@ export default async function InvoicesPage() {
   });
 
   return (
-    <main className="px-4 pb-28 pt-[max(env(safe-area-inset-top),1.5rem)]">
-      <h1 className="mb-4 text-xl font-bold">Invoices</h1>
+    <main className="min-h-dvh px-4 pb-10">
+      <PageHeader title="Invoices" className="mb-4" />
 
       {invoices.length === 0 ? (
         <p className="card-shell p-6 text-center text-sm text-neutral-500">

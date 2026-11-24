@@ -4,8 +4,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
   BellOff,
   CheckCheck,
   ChevronLeft,
@@ -77,8 +75,6 @@ const NOTIFICATION_VISUALS: Record<string, Visual> = {
   comment_reaction: { icon: Heart, tint: "text-rose-300", bg: "bg-rose-500" },
   post_comment: { icon: MessageCircle, tint: "text-blue-300", bg: "bg-blue-500" },
   rating_received: { icon: Star, tint: "text-yellow-300", bg: "bg-yellow-500" },
-  credits_received: { icon: ArrowDownLeft, tint: "text-emerald-300", bg: "bg-emerald-500" },
-  credits_sent: { icon: ArrowUpRight, tint: "text-orange-300", bg: "bg-orange-500" },
   credits_purchased: { icon: Coins, tint: "text-emerald-300", bg: "bg-emerald-500" },
   credits_granted: { icon: Coins, tint: "text-emerald-300", bg: "bg-emerald-500" },
   credits_deducted: { icon: Coins, tint: "text-red-300", bg: "bg-red-500" },
@@ -399,14 +395,6 @@ function YourActivityTab() {
           <span className="ml-auto self-center text-white/40">loaded history</span>
         </div>
         <div className="mt-3 flex gap-2">
-          {/* Credit send/receive paused
-          <Link
-            href="/credits/send"
-            className="flex-1 rounded-full bg-white/10 py-2 text-center text-[13px] font-medium text-white active:bg-white/15"
-          >
-            Send / receive
-          </Link>
-          */}
           <Link
             href="/spends"
             className="flex-1 rounded-full bg-white/10 py-2 text-center text-[13px] font-medium text-white active:bg-white/15"
@@ -562,7 +550,7 @@ function ActivityPageInner() {
 
   return (
     <main className="min-h-dvh bg-black">
-      <div className="relative mx-auto min-h-dvh w-full max-w-[430px] bg-[#0a0a0a] pb-24 text-white antialiased">
+      <div className="relative mx-auto min-h-dvh w-full max-w-[430px] bg-[#0a0a0a] pb-10 text-white antialiased">
         <header className="sticky top-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-xl">
           <div className="flex items-center gap-2 px-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
             <button

@@ -1,37 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
-import { playSound, setSoundsEnabled, soundsEnabled } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 
-/** Turns the app's UI sounds (send, success, credits, scan…) on or off for this device. */
-export function SoundToggle() {
-  const [on, setOn] = useState(true);
-  useEffect(() => setOn(soundsEnabled()), []);
-
+/**
+ * Switch row for the app's UI sounds (send, success, credits, scan…).
+ * Controlled: the settings page applies the choice when the user taps Save.
+ */
+export function SoundToggle({ value: on, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      onClick={() => {
-        const next = !on;
-        setSoundsEnabled(next);
-        setOn(next);
-        if (next) playSound("success");
-      }}
-      className="flex w-full items-center gap-3 rounded-2xl bg-neutral-900 px-4 py-3.5 text-left"
+      onClick={() => onChange(!on)}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-white/[0.04]"
     >
-      <span className="grid h-9 w-9 place-items-center rounded-full bg-white/[0.08]">
-        {on ? <Volume2 className="h-[18px] w-[18px]" /> : <VolumeX className="h-[18px] w-[18px] text-neutral-500" />}
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-gradient-to-br from-pink-500 to-rose-600 text-white">
+        {on ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium">Sounds</span>
-        <span className="block text-[13px] text-neutral-500">Message sent, posted, credits added, QR scanned</span>
+        <span className="block text-[15px] font-medium text-white">Sounds</span>
+        <span className="block truncate text-[12.5px] text-neutral-500">Sent, posted, credits added, QR scanned</span>
       </span>
       <span className={cn("relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors", on ? "bg-[#34C759]" : "bg-neutral-700")}>
-        <span className={cn("absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-transform", on ? "translate-x-[22px]" : "translate-x-[2px]")} />
+        <span
+          className={cn(
+            "absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-transform",
+            on ? "translate-x-[22px]" : "translate-x-[2px]",
+          )}
+        />
       </span>
     </button>
   );

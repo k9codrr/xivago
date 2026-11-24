@@ -152,7 +152,7 @@ export default function SpendsPage() {
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            <StatTile icon={CalendarDays} value={String(totals.slots)} label="Spots" href="/my-slots" />
+            <StatTile icon={CalendarDays} value={String(totals.slots)} label="Spots" href="/explore/buy" />
             <StatTile icon={IndianRupee} value={compactPaise(totals.spentPaise)} label="Spent" href="/checkout" />
             <StatTile icon={Images} value={String(totals.photos)} label="Photos" />
           </div>

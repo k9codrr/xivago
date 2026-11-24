@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { SearchResults } from "@/components/search-results";
 import { cn } from "@/lib/utils";
@@ -152,11 +154,19 @@ function findSearchOrigin(): OriginBox {
 
 /** Search drawer that grows out of the page's search button, with the same search input and results. */
 export function FastScrollSearchDrawer({ onClose }: { onClose: () => void }) {
+  const pathname = usePathname();
   const [q, onQChange] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [origin, setOrigin] = useState<OriginBox | null>(null);
   const [vw, setVw] = useState(430);
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<number | null>(null);
   const closing = useRef(false);
+  const closeTimer = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Measure the search button before the first paint so the drawer starts exactly on top of it
   useLayoutEffect(() => {
@@ -170,22 +180,40 @@ export function FastScrollSearchDrawer({ onClose }: { onClose: () => void }) {
       if (o.el) o.el.style.visibility = prevVisibility;
     };
   }, []);
-  const [dragY, setDragY] = useState(0);
-  const dragStart = useRef<number | null>(null);
 
-  const close = () => {
+  const close = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
+    inputRef.current?.blur(); // drop the keyboard right away
+    setDragging(false);
     setDragY(0);
     setExpanded(false); // shrink back into the search pill…
-    setTimeout(onClose, DRAWER_ANIM_MS); // …then unmount
-  };
+    closeTimer.current = window.setTimeout(() => onCloseRef.current(), DRAWER_ANIM_MS); // …then unmount
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  // Navigating anywhere (tapping a result, switching tabs, browser back) closes the drawer at once.
+  const firstPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== firstPath.current) onCloseRef.current();
+  }, [pathname]);
 
   // Grow out of the pill on the next frame (so the transition runs), lock page
   // scroll behind the drawer, and close on Escape
   useEffect(() => {
     if (!origin) return;
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setExpanded(true)));
+    const raf = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setExpanded(true);
+        inputRef.current?.focus({ preventScroll: true });
+      }),
+    );
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
@@ -195,24 +223,46 @@ export function FastScrollSearchDrawer({ onClose }: { onClose: () => void }) {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin]);
+  }, [origin, close]);
 
   // Springy overshoot while opening, quick settle while closing
-  const ease = expanded ? "cubic-bezier(0.34, 1.25, 0.64, 1)" : "cubic-bezier(0.4, 0, 0.2, 1)";
+  const ease = expanded ? "cubic-bezier(0.34, 1.15, 0.64, 1)" : "cubic-bezier(0.4, 0, 0.2, 1)";
   const morph = `${DRAWER_ANIM_MS}ms ${ease}`;
 
   if (!origin) return null;
   const drawerWidth = Math.min(vw, 430);
   const iconOnly = origin.width < 120; // round icon button vs. a wide pill
 
-  return (
+  const onDragStart = (y: number | undefined) => {
+    if (y == null) return;
+    dragStart.current = y;
+    setDragging(true);
+  };
+  const onDragMove = (y: number | undefined) => {
+    if (dragStart.current == null || y == null) return;
+    setDragY(Math.min(0, y - dragStart.current));
+  };
+  const onDragEnd = () => {
+    dragStart.current = null;
+    setDragging(false);
+    if (dragY < -DRAWER_CLOSE_DRAG_PX) close();
+    else setDragY(0);
+  };
+
+  // Portalled to <body>: the headers that open this use backdrop-filter / z-index
+  // stacking, which would otherwise trap these fixed layers inside the header box
+  // (the backdrop then doesn't cover the page and taps outside never close it).
+  return createPortal(
     <>
-      {/* Backdrop: tap to close */}
+      {/* Backdrop: tap anywhere outside to close */}
       <div
+        aria-hidden
         onClick={close}
         style={{ transition: `opacity ${DRAWER_ANIM_MS}ms ease` }}
-        className={cn("fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm", expanded ? "opacity-100" : "opacity-0")}
+        className={cn(
+          "fixed inset-0 z-[9990] bg-black/70 backdrop-blur-md",
+          expanded ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
       />
 
       {/* The search pill itself grows into the drawer (and shrinks back on close) */}
@@ -224,57 +274,64 @@ export function FastScrollSearchDrawer({ onClose }: { onClose: () => void }) {
           top: expanded ? 0 : origin.top,
           left: expanded ? (vw - drawerWidth) / 2 : origin.left,
           width: expanded ? drawerWidth : origin.width,
-          height: expanded ? "85dvh" : origin.height,
+          height: expanded ? "88dvh" : origin.height,
           borderRadius: expanded ? "0 0 28px 28px" : origin.radius,
-          backgroundColor: expanded ? "#0a0a0a" : origin.background,
+          backgroundColor: expanded ? "#0c0c0e" : origin.background,
           transform: `translateY(${dragY}px)`,
-          transition: dragStart.current != null
+          transition: dragging
             ? "none"
             : `top ${morph}, left ${morph}, width ${morph}, height ${morph}, border-radius ${morph}, background-color ${DRAWER_ANIM_MS}ms ease, transform ${morph}`,
         }}
-        className="fixed z-[61] flex flex-col overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.6)] ring-1 ring-white/10"
+        className="fixed z-[9991] flex flex-col overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.08]"
       >
+        {/* ── Search bar ── */}
         <div
           style={{ transition: `padding ${morph}` }}
           className={cn(
-            "flex shrink-0 items-center gap-3",
-            expanded ? "px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)]" : "p-0",
+            "flex shrink-0 items-center gap-2",
+            expanded ? "px-4 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]" : "p-0",
           )}
         >
           <div
             style={{
-              height: expanded ? 48 : origin.height,
+              height: expanded ? 46 : origin.height,
               // Collapsed: icon sits exactly where it is in the button
-              paddingLeft: expanded ? 20 : iconOnly ? (origin.width - 20) / 2 : 24,
+              paddingLeft: expanded ? 14 : iconOnly ? (origin.width - 20) / 2 : 24,
               transition: `height ${morph}, padding ${morph}, background-color ${DRAWER_ANIM_MS}ms ease`,
             }}
             className={cn(
-              "flex min-w-0 flex-1 items-center gap-3 rounded-full pr-5 text-white",
-              expanded ? "bg-[#5c6650]/90" : "bg-transparent",
+              "flex min-w-0 flex-1 items-center gap-2.5 rounded-[14px] pr-3 text-white",
+              expanded ? "bg-white/[0.08] ring-1 ring-white/[0.08] focus-within:ring-[#0A84FF]/60" : "bg-transparent",
             )}
           >
             <Search
-              style={{ transition: `transform ${morph}, width ${morph}, height ${morph}` }}
-              className={cn(
-                "shrink-0",
-                expanded ? "h-[17px] w-[17px] text-white/80" : iconOnly ? "h-[20px] w-[20px] text-white" : "h-[17px] w-[17px] text-white/80",
-              )}
+              className={cn("shrink-0", expanded || !iconOnly ? "h-[18px] w-[18px] text-white/55" : "h-[20px] w-[20px] text-white")}
               strokeWidth={2}
             />
             <input
-              autoFocus
+              ref={inputRef}
               value={q}
               onChange={(e) => onQChange(e.target.value)}
-              placeholder="Search people, requests, communities…"
+              placeholder="Search people, requests, communities"
+              enterKeyHint="search"
+              autoComplete="off"
               style={{ transition: `opacity 200ms ease ${expanded ? 120 : 0}ms` }}
               className={cn(
-                "min-w-0 flex-1 bg-transparent text-[13px] tracking-[0.02em] text-white placeholder:text-white/60 outline-none",
-                !expanded && iconOnly && "opacity-0",
+                "min-w-0 flex-1 bg-transparent text-[15px] text-white placeholder:text-white/40 outline-none",
+                !expanded && "opacity-0",
               )}
             />
-            {q && (
-              <button type="button" onClick={() => onQChange("")} aria-label="Clear search" className="shrink-0 text-white/80">
-                <X className="h-[15px] w-[15px]" strokeWidth={2} />
+            {q && expanded && (
+              <button
+                type="button"
+                onClick={() => {
+                  onQChange("");
+                  inputRef.current?.focus();
+                }}
+                aria-label="Clear search"
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/25 text-black"
+              >
+                <X className="h-3 w-3" strokeWidth={3} />
               </button>
             )}
           </div>
@@ -283,8 +340,8 @@ export function FastScrollSearchDrawer({ onClose }: { onClose: () => void }) {
             onClick={close}
             style={{ transition: `opacity ${DRAWER_ANIM_MS}ms ease, max-width ${morph}` }}
             className={cn(
-              "shrink-0 overflow-hidden whitespace-nowrap text-[13px] font-medium text-white/80",
-              expanded ? "max-w-[80px] opacity-100" : "max-w-0 opacity-0",
+              "shrink-0 overflow-hidden whitespace-nowrap px-1 text-[15px] font-medium text-[#0A84FF]",
+              expanded ? "max-w-[90px] opacity-100" : "pointer-events-none max-w-0 opacity-0",
             )}
           >
             Cancel
@@ -295,45 +352,53 @@ export function FastScrollSearchDrawer({ onClose }: { onClose: () => void }) {
         <div
           style={{ transition: `opacity 220ms ease ${expanded ? 160 : 0}ms, transform ${morph}` }}
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+            "no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain",
             expanded ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0",
           )}
         >
-          <SearchResults q={q} />
+          <SearchResults q={q} onNavigate={close} />
         </div>
 
-        {/* Grab handle: drag up to close */}
-        <div
-          onTouchStart={(e) => (dragStart.current = e.touches[0]?.clientY ?? null)}
-          onTouchMove={(e) => {
-            const y = e.touches[0]?.clientY;
-            if (dragStart.current == null || y == null) return;
-            setDragY(Math.min(0, y - dragStart.current));
-          }}
-          onTouchEnd={() => {
-            dragStart.current = null;
-            if (dragY < -DRAWER_CLOSE_DRAG_PX) close();
-            else setDragY(0);
-          }}
-          className={cn("flex shrink-0 touch-none justify-center py-3 transition-opacity", expanded ? "opacity-100" : "opacity-0")}
+        {/* Grab handle: drag up (or tap) to close */}
+        <button
+          type="button"
+          aria-label="Close search"
+          onClick={close}
+          onTouchStart={(e) => onDragStart(e.touches[0]?.clientY)}
+          onTouchMove={(e) => onDragMove(e.touches[0]?.clientY)}
+          onTouchEnd={onDragEnd}
+          onTouchCancel={onDragEnd}
+          className={cn(
+            "flex shrink-0 touch-none justify-center border-t border-white/[0.06] pb-3 pt-2.5 transition-opacity",
+            expanded ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
         >
           <span className="h-[5px] w-10 rounded-full bg-white/25" />
-        </div>
+        </button>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
 /**
  * The search drawer plus how to open it: double fast pull-down from the top of
  * the page, or `open()` (e.g. from a search button tap).
+ *
+ * `anchorRef` should point at an element of the page that owns the drawer. The
+ * keep-alive tab shell keeps several pages mounted (hidden) at once; only the
+ * one that is actually visible reacts to the pull gesture, so a pull never opens
+ * invisible drawers in background tabs that would then stay open.
  */
-export function useSearchDrawer() {
+export function useSearchDrawer(anchorRef?: RefObject<HTMLElement | null>) {
   const [open, setOpen] = useState(false);
   useDoubleFastPull(() => {
+    const anchor = anchorRef?.current;
+    if (anchor && anchor.getClientRects().length === 0) return; // this page is hidden
     void haptic("medium");
     setOpen(true);
   }, !open);
-  const drawer = open ? <FastScrollSearchDrawer onClose={() => setOpen(false)} /> : null;
-  return { open: () => setOpen(true), drawer };
+  const handleClose = useCallback(() => setOpen(false), []);
+  const drawer = open ? <FastScrollSearchDrawer onClose={handleClose} /> : null;
+  return { open: () => setOpen(true), close: handleClose, isOpen: open, drawer };
 }

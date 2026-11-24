@@ -9,10 +9,9 @@ import { apiError } from "@/lib/api-response";
  * middleware.ts) -- they land on /checkout and still need to see their balance.
  */
 
-type SpendCategory = "POSTING" | "BOOSTS" | "SLOTS" | "SENT" | "OTHER";
+type SpendCategory = "POSTING" | "BOOSTS" | "SLOTS" | "OTHER";
 
 function spendCategory(type: string, note: string | null): SpendCategory {
-  if (type === "TRANSFER_OUT") return "SENT";
   if (note === "post-demand-fee") return "POSTING";
   if (note?.startsWith("priority-boost") || type === "FEATURED_HOLD") return "BOOSTS";
   if (note?.startsWith("slot-purchase")) return "SLOTS";
@@ -51,43 +50,24 @@ export async function GET() {
     ]);
     if (!profile) return apiError(404, "NOT_FOUND", "Profile not found.");
 
-    const spending: Record<SpendCategory, number> = { POSTING: 0, BOOSTS: 0, SLOTS: 0, SENT: 0, OTHER: 0 };
+    const spending: Record<SpendCategory, number> = { POSTING: 0, BOOSTS: 0, SLOTS: 0, OTHER: 0 };
     for (const t of monthDebits) spending[spendCategory(t.type, t.note)] += -t.amount;
 
-    // Up to four distinct recent sources of incoming credits: each sender
-    // once, plus one tile each for top-ups and grants.
+    // Up to four distinct recent sources of incoming credits: one tile each
+    // per ledger type (top-ups, grants, refunds…).
     const seen = new Set<string>();
-    const sources: { key: string; type: string; senderId?: string }[] = [];
+    const sources: { key: string; type: string }[] = [];
     for (const t of recentCredits) {
-      const senderId = t.type === "TRANSFER_IN" ? t.note?.match(/^transfer from (\S+)$/)?.[1] : undefined;
-      const key = senderId ?? t.type;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      sources.push({ key, type: t.type, senderId });
+      if (seen.has(t.type)) continue;
+      seen.add(t.type);
+      sources.push({ key: t.type, type: t.type });
       if (sources.length === 4) break;
     }
-
-    const senderIds = sources.flatMap((s) => (s.senderId ? [s.senderId] : []));
-    const senders = senderIds.length
-      ? await prisma.user.findMany({
-          where: { id: { in: senderIds } },
-          select: { id: true, name: true, avatarUrl: true },
-        })
-      : [];
-    const senderById = new Map(senders.map((s) => [s.id, s]));
 
     return NextResponse.json({
       profile,
       spending,
-      received: sources.map((s) => {
-        const sender = s.senderId ? senderById.get(s.senderId) : undefined;
-        return {
-          key: s.key,
-          type: s.type,
-          name: sender?.name ?? null,
-          avatarUrl: sender?.avatarUrl ?? null,
-        };
-      }),
+      received: sources,
     });
   } catch (err) {
     if (err instanceof UnauthorizedError) return apiError(401, "UNAUTHORIZED", "You must be signed in.");

@@ -1,0 +1,23 @@
+/** Main categories shown on the home page shelf, in display order. Icons live in components/category-icons. */
+export const HOME_CATEGORIES: { id: string; name: string }[] = [
+  { id: "13", name: "Health" },
+  { id: "14", name: "Legal" },
+  { id: "15", name: "Finance" },
+  { id: "16", name: "Real Estate" },
+  { id: "17", name: "Immigration" },
+  { id: "18", name: "IP & Patents" },
+  { id: "19", name: "Business" },
+  { id: "20", name: "Career" },
+  { id: "21", name: "Spiritual" },
+  { id: "22", name: "B2B Experts" },
+  { id: "23", name: "Events" },
+  { id: "24", name: "Travel" },
+  { id: "25", name: "Tech" },
+  { id: "26", name: "Education" },
+  { id: "27", name: "Family" },
+  { id: "28", name: "Pets" },
+  { id: "29", name: "Beauty" },
+  { id: "30", name: "Creative" },
+  { id: "8", name: "Customers" },
+  { id: "10", name: "Data" },
+];

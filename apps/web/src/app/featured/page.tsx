@@ -102,7 +102,7 @@ export default function FeaturedDashboardPage() {
 
   return (
     <main
-      className="min-h-dvh bg-black px-4 pb-24 pt-[max(env(safe-area-inset-top),0.75rem)] text-white antialiased"
+      className="min-h-dvh bg-black px-4 pb-10 pt-[max(env(safe-area-inset-top),0.75rem)] text-white antialiased"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, system-ui, sans-serif' }}
     >
       <Link

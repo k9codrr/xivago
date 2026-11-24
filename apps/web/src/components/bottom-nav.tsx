@@ -671,12 +671,25 @@ function isNavHidden(pathname: string): boolean {
     pathname.startsWith("/onboarding") ||
     (pathname.startsWith("/chats/") && pathname !== "/chats") ||
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/explore/sell") ||
-    pathname.startsWith("/explore/buy") ||
+    pathname.startsWith("/explore/") || // My posts / My responses (orders) and other explore sub-pages
     pathname.startsWith("/demands") ||
-    pathname.startsWith("/credits")
+    pathname.startsWith("/credits") ||
+    // Secondary pages: they have their own back button instead of the tab bar.
+    SECONDARY_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
   );
 }
+
+const SECONDARY_PAGES = [
+  "/settings",
+  "/notifications",
+  "/activity",
+  "/bookmarks",
+  "/communities",
+  "/invoices",
+  "/featured",
+  "/my-slots",
+  "/my-demands",
+];
 
 // Direct heavy impact — not routed through the shared haptic() dedupe, so
 // every switch (tap or swipe) buzzes. Shared by both nav styles.

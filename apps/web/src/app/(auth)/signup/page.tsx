@@ -7,35 +7,13 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Briefcase, ShoppingBag } from "lucide-react";
-import { signupSchema, type SignupInput, type RoleChoice } from "@/lib/validation/auth";
+import { signupSchema, type SignupInput } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
-import { cn } from "@/lib/utils";
 import { ConsentCheckbox } from "@/components/consent-checkbox";
 import { savePendingConsent, useConsentCheckbox } from "@/lib/consent-client";
-
-const ROLE_OPTIONS: Array<{
-  value: RoleChoice;
-  title: string;
-  description: string;
-  icon: typeof Briefcase;
-}> = [
-  {
-    value: "VENDOR",
-    title: "I provide services/products",
-    description: "Browse requests, respond to them, and get found by people who need you.",
-    icon: Briefcase,
-  },
-  {
-    value: "BUSINESS",
-    title: "I need services/products",
-    description: "Post what you need. Providers respond, and you choose who to talk to.",
-    icon: ShoppingBag,
-  },
-];
 
 export default function SignupPage() {
   const router = useRouter();
@@ -45,7 +23,6 @@ export default function SignupPage() {
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     setError,
     formState: { errors },
@@ -53,8 +30,6 @@ export default function SignupPage() {
     resolver: zodResolver(signupSchema),
     defaultValues: { role: "VENDOR" },
   });
-
-  const role = watch("role");
 
   // Invite links look like /signup?ref=CODE
   useEffect(() => {
@@ -95,7 +70,7 @@ export default function SignupPage() {
       }
 
       toast.success(`Welcome to xivago! You've got welcome credits waiting.`);
-      router.push("/");
+      router.push("/onboarding");
       router.refresh();
     } finally {
       setSubmitting(false);
@@ -107,42 +82,10 @@ export default function SignupPage() {
       <div className="mx-auto w-full max-w-sm">
         <h1 className="mb-1 text-2xl font-bold text-neutral-900">Create your account</h1>
         <p className="mb-6 text-sm text-neutral-500">
-          Takes less than a minute. You can change this later in Settings.
+          Takes less than a minute. Next, a few quick questions to set up your profile.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-          <div>
-            <Label>What brings you to xivago?</Label>
-            <div className="grid grid-cols-1 gap-2.5">
-              {ROLE_OPTIONS.map((opt) => {
-                const Icon = opt.icon;
-                const selected = role === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setValue("role", opt.value, { shouldValidate: true })}
-                    className={cn(
-                      "card-shell flex items-start gap-3 p-3.5 text-left transition-colors",
-                      selected && "border-brand-500 bg-brand-50",
-                    )}
-                    aria-pressed={selected}
-                  >
-                    <Icon
-                      className={cn("mt-0.5 h-5 w-5 shrink-0", selected ? "text-brand-600" : "text-neutral-400")}
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold text-neutral-900">
-                        {opt.title}
-                      </span>
-                      <span className="block text-xs text-neutral-500">{opt.description}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div>
             <Label htmlFor="name">Full name</Label>
             <Input id="name" autoComplete="name" aria-invalid={Boolean(errors.name)} {...register("name")} />
@@ -229,7 +172,7 @@ export default function SignupPage() {
           disabled={!consent.checked}
           onClick={() => {
             savePendingConsent(consent.events);
-            signIn("facebook", { callbackUrl: "/" });
+            signIn("facebook", { callbackUrl: "/onboarding" });
           }}
         >
           Continue with Facebook

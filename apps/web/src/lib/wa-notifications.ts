@@ -194,7 +194,7 @@ export async function sendQueuedDemandExpiringNotifications(): Promise<{ sent: n
       const result = await sendTemplateMessage(getWhatsAppCreds(), {
         to: row.toPhone,
         templateName: WHATSAPP_TEMPLATES.DEMAND_EXPIRING,
-        bodyParams: [payload.summary.slice(0, 60), String(payload.slotsFilled), appUrl("/my-demands")],
+        bodyParams: [payload.summary.slice(0, 60), String(payload.slotsFilled), appUrl("/explore/sell")],
       });
       await prisma.notificationLog.update({
         where: { id: row.id },

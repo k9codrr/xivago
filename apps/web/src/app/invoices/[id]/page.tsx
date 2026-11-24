@@ -39,7 +39,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const items = invoice.items as unknown as InvoiceItem[];
 
   return (
-    <main className="px-4 pb-28 pt-[max(env(safe-area-inset-top),1.5rem)]">
+    <main className="px-4 pb-10 pt-[max(env(safe-area-inset-top),1.5rem)]">
       <Link href="/invoices" className="mb-4 flex items-center gap-1 text-sm text-neutral-400">
         <ChevronLeft className="h-4 w-4" /> Invoices
       </Link>

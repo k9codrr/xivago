@@ -29,8 +29,6 @@ export type NotificationType =
   | "post_reaction"
   | "comment_reaction"
   | "post_comment"
-  | "credits_received"
-  | "credits_sent"
   | "credits_purchased"
   | "credits_granted"
   | "credits_deducted"
@@ -49,8 +47,6 @@ const CATEGORY: Record<NotificationType, PushCategory> = {
   comment_reaction: "social",
   post_comment: "social",
   rating_received: "social",
-  credits_received: "credits",
-  credits_sent: "credits",
   credits_purchased: "credits",
   credits_granted: "credits",
   credits_deducted: "credits",
@@ -475,37 +471,6 @@ export async function notifySlotPurchasedToAuthor(bidId: string): Promise<void> 
 }
 
 // ── Credits ─────────────────────────────────────────────────────────────────
-
-/** P2P transfer: tells the recipient they received, and the sender they sent. */
-export async function notifyCreditTransfer(senderId: string, recipientId: string, amount: number, transferId: string) {
-  const [senderName, recipientName] = await Promise.all([
-    nameOf(prisma, senderId).catch(() => "Someone"),
-    nameOf(prisma, recipientId).catch(() => "someone"),
-  ]);
-  await Promise.all([
-    notify({
-      userId: recipientId,
-      actorId: senderId,
-      type: "credits_received",
-      title: `+${credits(amount)} received`,
-      body: `${senderName} sent you ${credits(amount)}`,
-      url: CREDITS_URL,
-      entityId: transferId,
-      data: { amount },
-    }),
-    // Confirmation to the sender (actor is the recipient so it isn't a self-notification).
-    notify({
-      userId: senderId,
-      actorId: recipientId,
-      type: "credits_sent",
-      title: `${credits(amount)} sent`,
-      body: `You sent ${credits(amount)} to ${recipientName}`,
-      url: CREDITS_URL,
-      entityId: transferId,
-      data: { amount },
-    }),
-  ]);
-}
 
 /** An admin refunded a top-up: money back to the bank, unspent credits taken back. */
 export async function notifyPaymentRefunded(

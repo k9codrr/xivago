@@ -1580,7 +1580,12 @@ export function PostDemandModal({ open, onClose }: PostDemandModalProps) {
     if (!open) return;
     (async () => {
       const meRes = await fetch("/api/users/me");
-      if (meRes.ok) setCreditBalance((await meRes.json()).profile.creditBalance);
+      if (meRes.ok) {
+        const { profile } = await meRes.json();
+        setCreditBalance(profile.creditBalance);
+        // "Show my phone on requests" default, chosen during onboarding.
+        if (profile.onboarding?.shareContactDefault) setShareContact(true);
+      }
     })();
   }, [open]);
 

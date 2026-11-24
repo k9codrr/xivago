@@ -54,7 +54,8 @@ export const signupSchema = z
     email: z.string().trim().toLowerCase().email("Enter a valid email address"),
     password: passwordSchema,
     confirmPassword: z.string(),
-    role: roleChoiceSchema,
+    // Picked on /onboarding now ("What brings you to xivago?"); kept optional for older clients.
+    role: roleChoiceSchema.default("VENDOR"),
     referralCode: z.string().trim().max(20).optional(),
     acceptedTerms: z.literal(true, {
       errorMap: () => ({ message: "Please accept the Terms of Service and Privacy Policy" }),

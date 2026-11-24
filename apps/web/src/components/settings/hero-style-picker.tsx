@@ -3,9 +3,9 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/components/ui/haptic";
-import { HERO_STYLES, setHeroStyle, useHeroStyle, type HeroStyle } from "@/lib/hero-style";
+import { HERO_STYLES, type HeroStyle } from "@/lib/hero-style";
 
-const LABELS: Record<HeroStyle, { title: string; hint: string }> = {
+export const HERO_STYLE_LABELS: Record<HeroStyle, { title: string; hint: string }> = {
   classic: { title: "Classic", hint: "Full-width slider with dots" },
   stack: { title: "Stack", hint: "Stacked cards that loop forever" },
 };
@@ -53,8 +53,7 @@ function StackPreview() {
   );
 }
 
-export function HeroStylePicker() {
-  const current = useHeroStyle();
+export function HeroStylePicker({ value: current, onChange }: { value: HeroStyle; onChange: (v: HeroStyle) => void }) {
   const tap = useHaptic("light");
 
   return (
@@ -69,7 +68,7 @@ export function HeroStylePicker() {
             aria-checked={selected}
             onClick={() => {
               tap();
-              setHeroStyle(style);
+              onChange(style);
             }}
             className={cn(
               "flex flex-col gap-3 rounded-[20px] border-2 p-3 text-left transition-colors",
@@ -81,8 +80,8 @@ export function HeroStylePicker() {
             <div className="mx-auto w-[80%]">{style === "classic" ? <ClassicPreview /> : <StackPreview />}</div>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold">{LABELS[style].title}</p>
-                <p className="text-[12px] leading-snug text-neutral-500">{LABELS[style].hint}</p>
+                <p className="text-[15px] font-semibold">{HERO_STYLE_LABELS[style].title}</p>
+                <p className="text-[12px] leading-snug text-neutral-500">{HERO_STYLE_LABELS[style].hint}</p>
               </div>
               <span
                 className={cn(

@@ -66,7 +66,7 @@ function Bookmarks() {
   if (collectionId) return <CollectionDetail id={collectionId} onBack={() => go("")} onChanged={load} />;
 
   return (
-    <main className="min-h-dvh bg-black px-4 pb-28 text-white">
+    <main className="min-h-dvh bg-black px-4 pb-10 text-white">
       <header className="sticky top-0 z-30 -mx-4 grid grid-cols-[3rem_1fr_3rem] items-center bg-black/80 px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur-xl">
         <button
           type="button"
@@ -142,7 +142,7 @@ function AllSaved({ onBack, initialTab }: { onBack: () => void; initialTab: TabI
   const [tab, setTab] = useState<TabId>(initialTab);
   const [collect, setCollect] = useState<SavedRef | null>(null);
   return (
-    <main className="min-h-dvh bg-black px-3 pb-28 text-white">
+    <main className="min-h-dvh bg-black px-3 pb-10 text-white">
       <header className="sticky top-0 z-30 -mx-3 grid grid-cols-[3rem_1fr_3rem] items-center bg-black/80 px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur-xl">
         <button type="button" onClick={onBack} aria-label="Back" className="flex h-11 w-11 items-center justify-center rounded-full active:bg-white/10">
           <ArrowLeft className="h-5 w-5" />
@@ -225,7 +225,7 @@ function CollectionDetail({ id, onBack, onChanged }: { id: string; onBack: () =>
   const empty = data && data.demands.length === 0 && data.posts.length === 0;
 
   return (
-    <main className="min-h-dvh bg-black px-3 pb-28 text-white">
+    <main className="min-h-dvh bg-black px-3 pb-10 text-white">
       <header className="sticky top-0 z-30 -mx-3 grid grid-cols-[3rem_1fr_3rem] items-center bg-black/80 px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur-xl">
         <button type="button" onClick={onBack} aria-label="Back" className="flex h-11 w-11 items-center justify-center rounded-full active:bg-white/10">
           <ArrowLeft className="h-5 w-5" />
