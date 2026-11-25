@@ -96,11 +96,11 @@ export function ExploreHero({ header, profileUrl, avatarUrl, initial }: ExploreH
 
         {/* Profile QR: tap to scan someone else's in place, press & hold to customise */}
         <div ref={qrTileRef} className="relative mx-auto mt-9 grid h-[224px] w-[224px] place-items-center">
-          <CardHalo theme={theme} className="-inset-14" />
+          {/* <CardHalo theme={theme} className="-inset-14" /> */}
           {scannerOpen ? (
             <InlineQrScanner
               onClose={() => setScannerOpen(false)}
-              className="h-full w-full rounded-[26px] shadow-[0_22px_50px_-12px_rgba(0,0,0,0.75)] ring-1 ring-white/25"
+              className="h-full w-full rounded-[26px] ring-1 ring-white/25"
             />
           ) : (
             <button

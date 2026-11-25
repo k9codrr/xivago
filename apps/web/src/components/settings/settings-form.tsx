@@ -30,12 +30,14 @@ import { setCardLayout, useCardLayout, type CardLayout } from "@/lib/card-layout
 import { setHeroStyle, useHeroStyle, type HeroStyle } from "@/lib/hero-style";
 import { setNavStyle, useNavStyle, type NavStyle } from "@/lib/nav-style";
 import { setSheetStyle, useSheetStyle, type SheetStyle } from "@/lib/sheet-style";
+import { setDrawerStyle, useDrawerStyle, type DrawerStyle } from "@/lib/drawer-style";
 import { setExploreIcons, useExploreIcons, type ExploreIconSet } from "@/lib/explore-icons";
 import { setCategoryIcons, useCategoryIcons, type CategoryIconPrefs } from "@/lib/category-icons";
 import { CardLayoutPicker, CARD_LAYOUT_LABELS } from "@/components/settings/card-layout-picker";
 import { HeroStylePicker, HERO_STYLE_LABELS } from "@/components/settings/hero-style-picker";
 import { NavStylePicker, NAV_STYLE_LABELS } from "@/components/settings/nav-style-picker";
 import { SheetStylePicker, SHEET_STYLE_LABELS } from "@/components/settings/sheet-style-picker";
+import { DrawerStylePicker, DRAWER_STYLE_LABELS } from "@/components/settings/drawer-style-picker";
 import { ExploreIconsPicker, EXPLORE_ICON_LABELS } from "@/components/settings/explore-icons-picker";
 import { CategoryIconsPicker, CATEGORY_ICON_STYLE_LABELS } from "@/components/settings/category-icons-picker";
 import { SoundToggle } from "@/components/settings/sound-toggle";
@@ -47,13 +49,14 @@ interface Prefs {
   heroStyle: HeroStyle;
   categoryIcons: CategoryIconPrefs;
   sheetStyle: SheetStyle;
+  drawerStyle: DrawerStyle;
   navStyle: NavStyle;
   exploreIcons: ExploreIconSet;
   sounds: boolean;
 }
 
 type PrefKey = keyof Prefs;
-type Panel = "cardLayout" | "heroStyle" | "categoryIcons" | "sheetStyle" | "navStyle" | "exploreIcons" | "password" | "delete";
+type Panel = "cardLayout" | "heroStyle" | "categoryIcons" | "sheetStyle" | "drawerStyle" | "navStyle" | "exploreIcons" | "password" | "delete";
 
 const PANEL_INFO: Record<Panel, { title: string; hint: string }> = {
   cardLayout: {
@@ -71,6 +74,10 @@ const PANEL_INFO: Record<Panel, { title: string; hint: string }> = {
   sheetStyle: {
     title: "Post drawer",
     hint: "How the drawer for posting a request or offer looks. It works the same in every style.",
+  },
+  drawerStyle: {
+    title: "Demand drawer",
+    hint: "How the demand detail drawer looks when you tap a post card. Choose between default and modern peek style.",
   },
   navStyle: {
     title: "Bottom navigation",
@@ -114,14 +121,15 @@ export function SettingsForm() {
   const heroStyle = useHeroStyle();
   const categoryIcons = useCategoryIcons();
   const sheetStyle = useSheetStyle();
+  const drawerStyle = useDrawerStyle();
   const navStyle = useNavStyle();
   const exploreIcons = useExploreIcons();
   const [sounds, setSounds] = useState(true);
   useEffect(() => setSounds(soundsEnabled()), []);
 
   const saved: Prefs = useMemo(
-    () => ({ cardLayout, heroStyle, categoryIcons, sheetStyle, navStyle, exploreIcons, sounds }),
-    [cardLayout, heroStyle, categoryIcons, sheetStyle, navStyle, exploreIcons, sounds],
+    () => ({ cardLayout, heroStyle, categoryIcons, sheetStyle, drawerStyle, navStyle, exploreIcons, sounds }),
+    [cardLayout, heroStyle, categoryIcons, sheetStyle, drawerStyle, navStyle, exploreIcons, sounds],
   );
 
   // Pending edits on top of the saved values.
@@ -169,6 +177,9 @@ export function SettingsForm() {
             break;
           case "sheetStyle":
             setSheetStyle(value.sheetStyle);
+            break;
+          case "drawerStyle":
+            setDrawerStyle(value.drawerStyle);
             break;
           case "navStyle":
             setNavStyle(value.navStyle);
@@ -301,6 +312,14 @@ export function SettingsForm() {
               onClick={() => setPanel("sheetStyle")}
             />
             <Row
+              icon={PanelsTopLeft}
+              tint="from-pink-400 to-rose-600"
+              label="Demand drawer"
+              value={DRAWER_STYLE_LABELS[value.drawerStyle].title}
+              changed={changedKeys.includes("drawerStyle")}
+              onClick={() => setPanel("drawerStyle")}
+            />
+            <Row
               icon={PanelBottom}
               tint="from-fuchsia-400 to-purple-600"
               label="Bottom navigation"
@@ -368,6 +387,7 @@ export function SettingsForm() {
             <CategoryIconsPicker value={value.categoryIcons} onChange={(v) => update("categoryIcons", v)} />
           )}
           {panel === "sheetStyle" && <SheetStylePicker value={value.sheetStyle} onChange={(v) => update("sheetStyle", v)} />}
+          {panel === "drawerStyle" && <DrawerStylePicker value={value.drawerStyle} onChange={(v) => update("drawerStyle", v)} />}
           {panel === "navStyle" && <NavStylePicker value={value.navStyle} onChange={(v) => update("navStyle", v)} />}
           {panel === "exploreIcons" && (
             <ExploreIconsPicker value={value.exploreIcons} onChange={(v) => update("exploreIcons", v)} />

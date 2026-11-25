@@ -6,9 +6,9 @@ import { useHaptic } from "@/components/ui/haptic";
 import { SHEET_STYLES, type SheetStyle } from "@/lib/sheet-style";
 
 export const SHEET_STYLE_LABELS: Record<SheetStyle, { title: string; hint: string }> = {
-  default: { title: "Default", hint: "Dark frosted sheet" },
-  spotify: { title: "Spotify", hint: "Solid dark, music-app style" },
-  glass: { title: "Liquid glass", hint: "Clear, Apple-style glass" },
+  default: { title: "Default", hint: "frosted sheet" },
+  spotify: { title: "Dark", hint: "Solid style" },
+  glass: { title: "Liquid", hint: "Glass-style" },
 };
 
 /* Miniature sketch: a page with a half-open sheet floating over it */

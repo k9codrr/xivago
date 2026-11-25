@@ -6,6 +6,7 @@ import { HeroSlider, type HeroSlideData } from "@/components/featured/hero-slide
 import { getHeroSlides } from "@/lib/featured";
 import { maskDemandAuthor } from "@/lib/demand-privacy";
 import { ScrollToTop } from "@/components/scroll-to-top";
+import { LocationHeader } from "@/components/location-header";
 
 import { HOME_CATEGORIES } from "@/lib/home-categories";
 
@@ -51,13 +52,8 @@ export default async function FeedTabs() {
           }}
         />
 
-        {/* Large title */}
-        <div className="mt-6 px-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.06em] text-[#EBEBF5]/55">{today}</p>
-          <h1 className="mt-0.5 text-[34px] font-bold leading-[1.1] tracking-[-0.025em]">
-            What do you need?
-          </h1>
-        </div>
+        {/* Large title with user location */}
+        <LocationHeader greeting={today} />
       </header>
 
       <section className="relative mt-4 flex-1 px-4 pb-8">

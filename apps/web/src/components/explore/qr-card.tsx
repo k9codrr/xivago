@@ -60,13 +60,13 @@ export function QrCard({ theme, size, value, avatarUrl, initial, className }: Qr
         background: cardImage
           ? `linear-gradient(160deg, rgba(0,0,0,0.12), rgba(0,0,0,0.42)), ${cardImage}`
           : `radial-gradient(130% 130% at 100% 100%, ${fill.to} 0%, color-mix(in srgb, ${fill.to} 35%, transparent) 38%, transparent 70%), ${fill.from}`,
-        boxShadow: `0 22px 50px -12px rgba(0,0,0,0.75), 0 0 60px -20px ${fill.accent}`,
+        // boxShadow: `0 22px 50px -12px rgba(0,0,0,0.75), 0 0 60px -20px ${fill.accent}`,
       }}
     >
       {theme.label ? (
         <>
           {/* Dimmed QR as texture under the art */}
-          <QRCodeSVG
+          {/* <QRCodeSVG
             value={qrValue}
             size={size}
             level="M"
@@ -74,14 +74,14 @@ export function QrCard({ theme, size, value, avatarUrl, initial, className }: Qr
             fgColor={fill.qr}
             className="absolute"
             style={{ inset: size * 0.07, width: size * 0.86, height: size * 0.86 }}
-          />
+          /> */}
           <p
             className="absolute font-black leading-[0.86] tracking-[-0.045em] text-white [text-shadow:0_4px_18px_rgba(0,0,0,0.35)]"
             style={{ left: size * 0.13, top: size * 0.15, fontSize: size * 0.255 }}
           >
             Scan
             <br />
-            &amp; Sell
+            &amp; Find
           </p>
         </>
       ) : (

@@ -32,6 +32,46 @@ import {
   HaloTabsTrigger,
 } from "@/components/ui/halo-tabs";
 import { useHaptic } from "@/components/ui/haptic";
+import { Glass, type GlassOptics } from "@samasante/liquid-glass";
+import { motion } from "framer-motion";
+
+const IOS26_TABS_OPTICS: Partial<GlassOptics> = {
+  strength: 0.08,
+  depth: 0.35,
+  curvature: 0.45,
+  bend: 0.25,
+  bendWidth: 0.08,
+  dispersion: 0.25,
+  specular: 1,
+  sheenAngle: 50,
+  sheen: 0.95,
+  sheenWidth: 2,
+  sheenFalloff: 1.5,
+  glow: 0.15,
+  glowSpread: 1,
+  glowFalloff: 1.5,
+  frost: 3,
+  saturate: 1.85,
+  brightness: 0.04,
+};
+
+const IOS26_FILTER_BTN_OPTICS: Partial<GlassOptics> = {
+  strength: 0.14,
+  depth: 0.3,
+  curvature: 0.55,
+  bend: 0.25,
+  bendWidth: 0.08,
+  dispersion: 0.2,
+  specular: 1,
+  sheenAngle: 50,
+  sheen: 0.95,
+  sheenWidth: 2,
+  glow: 0.15,
+  frost: 2,
+  saturate: 1.85,
+  brightness: 0.04,
+};
+
 
 export interface CategoryCardItem {
   id: string;
@@ -82,6 +122,33 @@ function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) 
 
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const filterMenuRef = React.useRef<HTMLDivElement>(null);
+  const [tabsShrunk, setTabsShrunk] = React.useState(false);
+
+  // Smooth scroll-shrink matching GlassBottomNav
+  React.useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        const delta = currentY - lastScrollY;
+        if (currentY > 60 && delta > 10) {
+          setTabsShrunk(true);
+          lastScrollY = currentY;
+        } else if (currentY <= 20 || delta < -10) {
+          setTabsShrunk(false);
+          lastScrollY = currentY;
+        }
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Close the filter dropdown on outside tap
   React.useEffect(() => {
@@ -236,52 +303,72 @@ function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) 
         {/* Demands Tabs: floating liquid-glass segmented control, pinned while scrolling */}
         <HaloTabs className="w-full gap-4" defaultValue="all">
           <div className="relative z-50 -mb-1 flex items-center justify-between px-1">
-            <h2 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-white">Requests</h2>
+            <h2 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-white">Posts</h2>
             
           </div>
-          <div className="sticky top-[max(env(safe-area-inset-top),0.5rem)] z-40 flex items-center gap-2">
-             
-            <HaloTabsList
-              variant="pill"
-              className="w-full rounded-full border border-white/[0.12] bg-[#1C1C1E]/0 p-1 shadow-[0_6px_20px_rgb(0_0_0/0.10),0_0_0_1px_rgb(0_0_0/0.04),inset_0_1px_0_rgb(255_255_255/0.8)] backdrop-blur-2xl backdrop-saturate-[1.8] dark:border-white/[0.12] dark:bg-[#1C1C1E]/0"
+          <motion.div
+            className="sticky top-[max(env(safe-area-inset-top),0.5rem)] z-40 flex w-full items-center gap-2"
+            style={{ transformOrigin: "top center" }}
+            animate={{ scale: tabsShrunk ? 0.92 : 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
+          >
+            <Glass
+              radius={24}
+              optics={IOS26_TABS_OPTICS}
+              className="min-w-0 flex-1 rounded-full shadow-[0_10px_36px_rgba(0,0,0,0.4)]"
+              style={{ background: "rgba(255, 255, 255, 0.10)" }}
             >
-              {TABS.map(({ id, label, icon: Icon }) => (
-                <HaloTabsTrigger
-                  value={id}
-                  key={id}
-                  className="min-h-[38px] max-h-none flex-1 gap-1.5 text-[14px] font-semibold tracking-[-0.01em] text-white/60 data-active:text-black "
-                >
-                  <Icon className="h-[16px] w-[16px]" strokeWidth={2.4} />
-                  {label}
-                </HaloTabsTrigger>
-              ))}
-              <HaloTabsIndicator
+              <HaloTabsList
                 variant="pill"
-                className="rounded-full bg-white shadow-[0_4px_14px_rgba(255,255,255,0.18)] [&>span]:hidden"
-              />
-            </HaloTabsList>
-          
-            <div ref={filterMenuRef} className="relative">
-              <button
-                type="button"
-                aria-label="Filters"
-                aria-expanded={filtersOpen}
-                onClick={() => {
-                  void triggerHaptic();
-                  setFiltersOpen((open) => !open);
-                }}
-                className={cn(
-                  "relative rounded-full border border-white/[0.12] bg-[#1C1C1E]/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_12px_32px_rgba(0,0,0,0.6)] backdrop-blur-2xl backdrop-saturate-[1.8] dark:border-white/[0.12] dark:bg-[#1C1C1E]/70 ",
-                  filtersOpen ? "bg-white text-black" : "bg-[#1C1C1E] text-white"
-                )}
+                className="w-full rounded-full border-0 bg-transparent px-1 py-1 shadow-none backdrop-blur-none dark:bg-transparent"
               >
-                <SlidersHorizontal className="h-[16px] w-[16px]" strokeWidth={2.4} />
-                {activeFilterCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-black bg-[#0A84FF] px-1 text-[10px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
+                {TABS.map(({ id, label, icon: Icon }) => (
+                  <HaloTabsTrigger
+                    value={id}
+                    key={id}
+                    className="min-h-[38px] max-h-none flex-1 gap-1.5 text-[14px] font-semibold tracking-[-0.01em] text-white/70 data-active:text-white"
+                  >
+                    <Icon className="h-[16px] w-[16px]" strokeWidth={2.4} />
+                    {label}
+                  </HaloTabsTrigger>
+                ))}
+                <HaloTabsIndicator
+                  variant="pill"
+                  className="rounded-full bg-white/[0.16] text-white"
+                />
+              </HaloTabsList>
+            </Glass>
+
+            <div ref={filterMenuRef} className="relative shrink-0">
+              <Glass
+                radius={23}
+                optics={IOS26_FILTER_BTN_OPTICS}
+                className="rounded-full shadow-[0_10px_36px_rgba(0,0,0,0.4)]"
+                style={{
+                  background: filtersOpen ? "rgba(255, 255, 255, 0.85)" : "rgba(255, 255, 255, 0.10)",
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Filters"
+                  aria-expanded={filtersOpen}
+                  onClick={() => {
+                    void triggerHaptic();
+                    setFiltersOpen((open) => !open);
+                  }}
+                  className={cn(
+                    "relative flex h-[46px] w-[46px] items-center justify-center rounded-full transition-colors active:scale-90",
+                    filtersOpen ? "text-black" : "text-white",
+                  )}
+                >
+                  <SlidersHorizontal className="h-[16px] w-[16px]" strokeWidth={2.4} />
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-black bg-[#0A84FF] px-1 text-[10px] font-bold text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              </Glass>
               {filtersOpen && (
                 <div className="absolute right-0 top-[calc(100%+8px)] w-[min(340px,calc(100vw-2rem))] animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150">
                 <div className="overflow-hidden rounded-[14px] border border-white/[0.08] bg-[#1C1C1E] shadow-[0_16px_40px_rgba(0,0,0,0.7)]">
@@ -372,7 +459,7 @@ function FeedInteractiveContent({ categoryCards }: FeedInteractiveSectionProps) 
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
           <HaloTabsContent value="all">
             <FeedList filters={activeFilters} />
           </HaloTabsContent>

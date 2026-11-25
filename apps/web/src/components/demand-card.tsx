@@ -181,7 +181,10 @@ import { ScreenshotGuard } from "@/components/screenshot-guard";
 
 import Link from "next/link";
 import { useState } from "react";
-import { X, MapPin, Wallet, Clock, ChevronRight, ChevronDown, ImageIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { X, MapPin, Wallet, Clock, ChevronRight, ChevronDown, ImageIcon, MessageCircle, Sparkles } from "lucide-react";
 import type { CardLayout } from "@/lib/card-layout";
 import { CountdownBadge } from "@/components/countdown-badge";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -191,6 +194,10 @@ import { serviceAreaLabel } from "@/lib/service-area";
 import { cn } from "@/lib/utils";
 import { SnapSheet, SheetScrollArea } from "@/components/ui/snap-sheet";
 import { useSheetStyle } from "@/lib/sheet-style";
+import { useDrawerStyle } from "@/lib/drawer-style";
+import { ModernDemandDrawer } from "@/components/modern-demand-drawer";
+import { CreditPaymentDrawer, type PaymentInvoice } from "@/components/credit-payment-drawer";
+import type { CreditAuth } from "@/lib/validation/tpin";
 
 import { SlotStrip } from "@/components/slot-strip";
 import { TierMark } from "@/components/tier-mark";
@@ -200,6 +207,10 @@ import { describeDemandCategory } from "@/lib/category-selection";
 import { TagChips } from "@/components/category-flow/chips";
 import { DemandStatsPanel } from "@/components/demand-stats-panel";
 import { demandTypeLabel } from "@/lib/demand-type";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
+import { PostCardDropdown } from "@/components/post-card-dropdown";
+import { MakeOfferDrawer } from "@/components/make-offer-drawer";
+import { toast } from "sonner";
 
 export interface DemandCardData {
   id: string;
@@ -379,10 +390,19 @@ function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () =>
           </p>
         )}
 
-        {/* price + budget */}
+        {/* price + budget — clicking price opens grab spot drawer */}
         <div className="mt-2.5 flex items-center justify-between gap-1.5">
           {budgetLabel ? (
-            <span className="truncate text-[12px] font-semibold text-[#30D158]">{budgetLabel}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen();
+              }}
+              className="truncate text-[12px] font-semibold text-[#30D158] active:opacity-70"
+            >
+              {budgetLabel}
+            </button>
           ) : !isOpen ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/55">
               <Clock className="h-2.5 w-2.5" /> Closed
@@ -390,9 +410,6 @@ function CompactCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () =>
           ) : (
             <span />
           )}
-          {/* <span className="shrink-0 rounded-full bg-white px-2.5 py-[5px] text-[11px] font-bold tracking-[-0.01em] text-black shadow-[0_4px_12px_rgba(255,255,255,0.2)]">
-            ₹{calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees}
-          </span> */}
         </div>
 
         {/* slot progress */}
@@ -427,8 +444,9 @@ function ProfileCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () =>
   const slotPrice = calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees;
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
       className={cn(
         "group border-none relative flex h-auto w-full flex-col overflow-hidden bg-transparent p-0 text-left",
@@ -493,7 +511,7 @@ function ProfileCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () =>
         {/* bidders + slot count, like "9 in common" */}
         <div className="mt-1.5 flex items-center gap-1.5">
           <span className="flex -space-x-1.5">
-            {Array.from({ length: maxSlots }).map((_, i) => {
+            {Array.from({ length: maxSlots }).slice(0, 8).map((_, i) => {
               const bid = demand.bids[i];
               return bid?.bidder.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -508,21 +526,28 @@ function ProfileCard({ demand, onOpen }: { demand: DemandCardData; onOpen: () =>
           </span>
           <span className="truncate text-[11px] font-medium text-white/70">
             {demand.bids.length}/{maxSlots} slots
-            {budgetLabel && <span className="text-[#30D158]"> · {budgetLabel}</span>}
+            {/* {budgetLabel && <span className="text-[#30D158]"> · {budgetLabel}</span>} */}
           </span>
         </div>
       </div>
 
       {/* ── Actions (visual only: the whole card opens the sheet) ── */}
       <div className="mt-2 flex items-center gap-1.5">
-        <span className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-white/[0.09] text-[13px] font-semibold text-white">
-          {isOpen ? <>Bid · ₹{slotPrice}</> : <><Clock className="h-3.5 w-3.5" /> Closed</>}
-        </span>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.09] text-white/80">
-          <ChevronDown className="h-4 w-4" />
-        </span>
+        <ShimmerButton
+          className="flex !h-7 flex-1 items-center justify-center gap-1.5 rounded-[9px]! bg-white/[0.09] text-[13px] font-semibold text-white"
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+        >
+          {isOpen ? <>
+            {budgetLabel && <span className="text-[#30D158]">{budgetLabel}</span>}
+          </> : <>
+            <Clock className="h-3.5 w-3.5" /> Closed</>}
+        </ShimmerButton>
+        <PostCardDropdown demandId={demand.id} onViewFull={onOpen} />
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -538,174 +563,313 @@ function AuthorLink({ demand, className, children }: { demand: DemandCardData; c
 
 /* ══════════════════════ FULL DETAIL SHEET ══════════════════════ */
 function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: boolean; onClose: () => void }) {
+  const drawerStyle = useDrawerStyle();
   const sheetStyle = useSheetStyle();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const [purchasing, setPurchasing] = useState(false);
+  const [boughtSlot, setBoughtSlot] = useState<number | null>(null);
+  const [openingChat, setOpeningChat] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
+
+  if (drawerStyle === "modern") {
+    return <ModernDemandDrawer demand={demand} open={open} onClose={onClose} />;
+  }
+
+  const me = session?.user;
+  const bids =
+    boughtSlot !== null && me && !demand.bids.some((b) => b.bidder.id === me.id)
+      ? [...demand.bids, { slot: boughtSlot, bidder: { id: me.id, name: me.name ?? "You", avatarUrl: me.image ?? null } }]
+      : demand.bids;
+
   const budgetLabel = withPriceUnit(formatBudgetRange(demand.budgetMin, demand.budgetMax), demand.priceUnit);
   const isOpen = demand.status === "OPEN";
   const displayName = demand.author.companyName ?? demand.author.name;
   const { provider, problems } = describeDemandCategory(demand.categoryProviderId, demand.categoryProblemIds);
   const providerName = provider?.name ?? demand.customProviderName ?? undefined;
   const typeLabel = demandTypeLabel(demand);
+  const alreadyHolds = Boolean(me && bids.some((b) => b.bidder.id === me.id));
+  const maxSlots = demand.maxSlots ?? 3;
+  const isFilled = bids.length >= maxSlots;
+  const slotPrice = calculateSlotPrice(demand.budgetMax, demand.budgetMin);
+
+  function handleGrabSpot() {
+    if (!me) {
+      toast.info("Log in to take a response spot.");
+      router.push(`/login?callbackUrl=/demands/${demand.id}`);
+      return;
+    }
+    setPurchasing(true);
+  }
+
+  function requestSlot(auth: CreditAuth) {
+    return fetch(`/api/demands/${demand.id}/slots`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auth }),
+    });
+  }
+
+  function handleSlotPaid(data: { slot: number }) {
+    setBoughtSlot(data.slot);
+    setPurchasing(false);
+    for (const key of ["demands-feed", "demands-deck", "niche-demands", "bookmarks"]) {
+      void queryClient.invalidateQueries({ queryKey: [key] });
+    }
+    router.refresh();
+  }
+
+  async function handleChat() {
+    if (openingChat) return;
+    setOpeningChat(true);
+    try {
+      const res = await fetch(`/api/demands/${demand.id}/conversation`);
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data?.error?.message ?? "Could not open this chat.");
+        return;
+      }
+      onClose();
+      router.push(`/chats/${data.conversation.id}`);
+    } catch {
+      toast.error("Could not open chat.");
+    } finally {
+      setOpeningChat(false);
+    }
+  }
+
+  function handleMakeOffer() {
+    if (!me) {
+      toast.info("Log in and take a spot first to make an offer.");
+      router.push(`/login?callbackUrl=/demands/${demand.id}`);
+      return;
+    }
+    if (!alreadyHolds) {
+      toast.info("Grab a spot first to send an offer.");
+      setPurchasing(true);
+      return;
+    }
+    setOfferOpen(true);
+  }
 
   return (
     // Same half / full snap sheet (and the same look from Settings) as the post and feed drawers.
     <SnapSheet open={open} onClose={onClose} label={demand.summary} theme={sheetStyle} className="text-white">
       <ScreenshotGuard className="flex min-h-0 flex-1 flex-col">
-      <SheetScrollArea className="space-y-5 px-4 pb-8 pt-2">
-        {/* ── author block ── */}
-        <div className="flex items-center justify-between gap-3">
-          <AuthorLink demand={demand} className="flex min-w-0 items-center gap-3 transition-opacity active:opacity-60">
-            {demand.author.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={demand.author.avatarUrl} alt={displayName} className="h-11 w-11 shrink-0 rounded-full bg-white/[0.08] object-cover" />
-            ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0A84FF]/20 text-sm font-semibold text-[#0A84FF]">
-                {initials(displayName)}
-              </span>
-            )}
-            <div className="min-w-0 leading-tight">
-              <p className="truncate text-[17px] font-semibold tracking-[-0.01em] text-white">
-                {displayName}
-                <TierMark tier={demand.author.trust?.[0]?.tier} className="ml-1.5 align-middle" />
-              </p>
-              <p className="truncate text-[13px] text-[#EBEBF5]/60">
-                {demand.authorHidden ? "Take a response spot to see who posted" : demand.author.name}
-              </p>
+        <SheetScrollArea className="space-y-5 px-4 pb-8 pt-2">
+          {/* ── author block ── */}
+          <div className="flex items-center justify-between gap-3">
+            <AuthorLink demand={demand} className="flex min-w-0 items-center gap-3 transition-opacity active:opacity-60">
+              {demand.author.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={demand.author.avatarUrl} alt={displayName} className="h-11 w-11 shrink-0 rounded-full bg-white/[0.08] object-cover" />
+              ) : (
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0A84FF]/20 text-sm font-semibold text-[#0A84FF]">
+                  {initials(displayName)}
+                </span>
+              )}
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-[17px] font-semibold tracking-[-0.01em] text-white">
+                  {displayName}
+                  <TierMark tier={demand.author.trust?.[0]?.tier} className="ml-1.5 align-middle" />
+                </p>
+                <p className="truncate text-[13px] text-[#EBEBF5]/60">
+                  {demand.authorHidden ? "Take a response spot to see who posted" : demand.author.name}
+                </p>
+              </div>
+            </AuthorLink>
+            <div className="flex shrink-0 items-center gap-1.5 [&>span]:bg-[#767680]/25 [&>span]:text-white/85">
+              {demand.isPriority && <PriorityBadge />}
+              <CountdownBadge timelineEnd={demand.timelineEnd} />
             </div>
-          </AuthorLink>
-          <div className="flex shrink-0 items-center gap-1.5 [&>span]:bg-[#767680]/25 [&>span]:text-white/85">
-            {demand.isPriority && <PriorityBadge />}
-            <CountdownBadge timelineEnd={demand.timelineEnd} />
           </div>
-        </div>
 
-        {/* ── category + summary ── */}
-        <div>
-          {typeLabel && <p className="mb-1 text-[13px] font-semibold text-white/85">{typeLabel}</p>}
-          {demand.subCategoryName && (
-            <p className="mb-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] text-[#0A84FF]">
-              {demand.categoryName ? `${demand.categoryName} › ${demand.subCategoryName}` : demand.subCategoryName}
-              {providerName && ` › ${providerName}`}
-            </p>
-          )}
-          <p className="text-[20px] font-semibold leading-[1.3] tracking-[-0.015em] text-white">
-            {demand.summary}
-          </p>
-          {problems.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {problems.map((problem) => (
-                <li key={problem.id} className="text-[14px] text-white/80">
-                  {problem.title}
-                  <TagChips tags={problem.tags} tone="dark" className="mt-1" />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {demand.tags && demand.tags.length > 0 && <TagChips tags={demand.tags} tone="dark" />}
-
-        {/* ── all media ── */}
-        {demand.mediaUrls && demand.mediaUrls.length > 0 && (
-          <div className="grid grid-cols-3 gap-1.5 overflow-hidden rounded-[16px]">
-            {demand.mediaUrls.map((url, i) => (
-              <div key={url} className="aspect-square overflow-hidden rounded-[10px] bg-white/[0.08]">
-                {isVideoUrl(url) ? (
-                  <video src={url} controls muted className="h-full w-full object-cover" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt={`Attachment ${i + 1}`} className="h-full w-full object-cover" />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── details: inset grouped list ── */}
-        <div>
-          <p className="mb-1.5 px-4 text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">Details</p>
-          <div className="divide-y divide-white/10 overflow-hidden rounded-[14px] bg-white/[0.08]">
-            {budgetLabel && (
-              <div className="flex items-center justify-between px-4 py-3 text-[15px]">
-                <span className="flex items-center gap-2.5 text-white"><Wallet className="h-4 w-4 text-[#30D158]" /> Budget</span>
-                <span className="text-[#EBEBF5]/60">{budgetLabel}</span>
-              </div>
-            )}
-            {(serviceAreaLabel(demand) || demand.locationName || demand.author.location) && (
-              <div className="flex items-center justify-between gap-4 px-4 py-3 text-[15px]">
-                <span className="flex shrink-0 items-center gap-2.5 text-white">
-                  <MapPin className="h-4 w-4 text-[#0A84FF]" /> {serviceAreaLabel(demand) ? "Serves" : "Location"}
-                </span>
-                <span className="truncate text-[#EBEBF5]/60">
-                  {serviceAreaLabel(demand, 3) ?? demand.locationName ?? demand.author.location}
-                </span>
-              </div>
-            )}
-            {demand.createdAt && (
-              <div className="flex items-center justify-between px-4 py-3 text-[15px]">
-                <span className="flex items-center gap-2.5 text-white"><Clock className="h-4 w-4 text-[#FF9F0A]" /> Posted</span>
-                <span className="text-[#EBEBF5]/60">{new Date(demand.createdAt).toLocaleDateString()}</span>
-              </div>
-            )}
-            {!isOpen && (
-              <div className="flex items-center justify-between px-4 py-3 text-[15px]">
-                <span className="flex items-center gap-2.5 text-white"><Clock className="h-4 w-4 text-[#EBEBF5]/60" /> Status</span>
-                <span className="text-[#EBEBF5]/60">Closed</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── tech inputs ── */}
-        {demand.selectedTechInputs && Object.keys(demand.selectedTechInputs).length > 0 && (
+          {/* ── category + summary ── */}
           <div>
-            <p className="mb-1.5 px-4 text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">Specifications</p>
-            <dl className="divide-y divide-white/10 overflow-hidden rounded-[14px] bg-white/[0.08]">
-              {Object.entries(demand.selectedTechInputs).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 px-4 py-3 text-[15px]">
-                  <dt className="text-white">{k}</dt>
-                  <dd className="text-right text-[#EBEBF5]/60">{String(v)}</dd>
+            {typeLabel && <p className="mb-1 text-[13px] font-semibold text-white/85">{typeLabel}</p>}
+            {demand.subCategoryName && (
+              <p className="mb-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] text-[#0A84FF]">
+                {demand.categoryName ? `${demand.categoryName} › ${demand.subCategoryName}` : demand.subCategoryName}
+                {providerName && ` › ${providerName}`}
+              </p>
+            )}
+            <p className="text-[20px] font-semibold leading-[1.3] tracking-[-0.015em] text-white">
+              {demand.summary}
+            </p>
+            {problems.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {problems.map((problem) => (
+                  <li key={problem.id} className="text-[14px] text-white/80">
+                    {problem.title}
+                    <TagChips tags={problem.tags} tone="dark" className="mt-1" />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {demand.tags && demand.tags.length > 0 && <TagChips tags={demand.tags} tone="dark" />}
+
+          {/* ── all media ── */}
+          {demand.mediaUrls && demand.mediaUrls.length > 0 && (
+            <div className="grid grid-cols-3 gap-1.5 overflow-hidden rounded-[16px]">
+              {demand.mediaUrls.map((url, i) => (
+                <div key={url} className="aspect-square overflow-hidden rounded-[10px] bg-white/[0.08]">
+                  {isVideoUrl(url) ? (
+                    <video src={url} controls muted className="h-full w-full object-cover" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={url} alt={`Attachment ${i + 1}`} className="h-full w-full object-cover" />
+                  )}
                 </div>
               ))}
-            </dl>
+            </div>
+          )}
+
+          {/* ── details: inset grouped list ── */}
+          <div>
+            <p className="mb-1.5 px-4 text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">Details</p>
+            <div className="divide-y divide-white/10 overflow-hidden rounded-[14px] bg-white/[0.08]">
+              {budgetLabel && (
+                <div className="flex items-center justify-between px-4 py-3 text-[15px]">
+                  <span className="flex items-center gap-2.5 text-white"><Wallet className="h-4 w-4 text-[#30D158]" /> Budget</span>
+                  <span className="text-[#EBEBF5]/60">{budgetLabel}</span>
+                </div>
+              )}
+              {(serviceAreaLabel(demand) || demand.locationName || demand.author.location) && (
+                <div className="flex items-center justify-between gap-4 px-4 py-3 text-[15px]">
+                  <span className="flex shrink-0 items-center gap-2.5 text-white">
+                    <MapPin className="h-4 w-4 text-[#0A84FF]" /> {serviceAreaLabel(demand) ? "Serves" : "Location"}
+                  </span>
+                  <span className="truncate text-[#EBEBF5]/60">
+                    {serviceAreaLabel(demand, 3) ?? demand.locationName ?? demand.author.location}
+                  </span>
+                </div>
+              )}
+              {demand.createdAt && (
+                <div className="flex items-center justify-between px-4 py-3 text-[15px]">
+                  <span className="flex items-center gap-2.5 text-white"><Clock className="h-4 w-4 text-[#FF9F0A]" /> Posted</span>
+                  <span className="text-[#EBEBF5]/60">{new Date(demand.createdAt).toLocaleDateString()}</span>
+                </div>
+              )}
+              {!isOpen && (
+                <div className="flex items-center justify-between px-4 py-3 text-[15px]">
+                  <span className="flex items-center gap-2.5 text-white"><Clock className="h-4 w-4 text-[#EBEBF5]/60" /> Status</span>
+                  <span className="text-[#EBEBF5]/60">Closed</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── tech inputs ── */}
+          {demand.selectedTechInputs && Object.keys(demand.selectedTechInputs).length > 0 && (
+            <div>
+              <p className="mb-1.5 px-4 text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">Specifications</p>
+              <dl className="divide-y divide-white/10 overflow-hidden rounded-[14px] bg-white/[0.08]">
+                {Object.entries(demand.selectedTechInputs).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-4 px-4 py-3 text-[15px]">
+                    <dt className="text-white">{k}</dt>
+                    <dd className="text-right text-[#EBEBF5]/60">{String(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          {/* ── bids & slot strip ── */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between px-4">
+              <p className="text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">
+                Bids · {demand.bids.length} of {demand.maxSlots ?? 3}
+              </p>
+              <span className="text-[13px] font-semibold text-[#FF9F0A]">
+                ₹{calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees} / slot
+              </span>
+            </div>
+            <div className="rounded-[14px] bg-white/[0.08] p-3">
+              <SlotStrip
+                demandId={demand.id}
+                bids={demand.bids}
+                maxSlots={demand.maxSlots ?? 3}
+                budgetMax={demand.budgetMax}
+                budgetMin={demand.budgetMin}
+                disabled={!isOpen}
+              />
+            </div>
+          </div>
+
+          {/* ── CTA ── */}
+          <Link
+            href={`/demands/${demand.id}`}
+            onClick={onClose}
+            className={cn(
+              "flex h-[50px] w-full items-center justify-center gap-1 rounded-[14px] bg-[#0A84FF] text-[17px] font-semibold tracking-[-0.01em] text-white transition-opacity active:opacity-70",
+              !isOpen && "pointer-events-none bg-[#3A3A3C] text-[#EBEBF5]/45",
+            )}
+          >
+            View Full Demand <ChevronRight className="h-5 w-5" />
+          </Link>
+
+          <DemandStatsPanel demandId={demand.id} openedFromCard tone="glass" />
+        </SheetScrollArea>
+
+        {/* ── Fixed bottom buttons: Grab Spot / Chat + Make Offer ── */}
+        {isOpen && (
+          <div className="shrink-0 border-t border-white/10 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
+            <div className="flex items-center gap-2">
+              {alreadyHolds ? (
+                <button
+                  type="button"
+                  onClick={handleChat}
+                  disabled={openingChat}
+                  className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#30D158] text-[17px] font-semibold text-white transition active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  {openingChat ? "Opening…" : "Chat"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGrabSpot}
+                  disabled={isFilled}
+                  className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#30D158] text-[17px] font-semibold text-white transition active:scale-[0.98] disabled:bg-white/15 disabled:text-white/40"
+                >
+                  {isFilled ? "Spots Filled" : `Grab Spot · ₹${slotPrice.rupees}`}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleMakeOffer}
+                className={cn(
+                  "flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] text-[17px] font-semibold transition active:scale-[0.98]",
+                  alreadyHolds
+                    ? "bg-[#0A84FF] text-white"
+                    : "border border-white/20 bg-white/[0.08] text-white/80",
+                )}
+              >
+                <Sparkles className="h-4 w-4" />
+                Make Offer
+              </button>
+            </div>
           </div>
         )}
 
-        {/* ── bids & slot strip ── */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between px-4">
-            <p className="text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">
-              Bids · {demand.bids.length} of {demand.maxSlots ?? 3}
-            </p>
-            <span className="text-[13px] font-semibold text-[#FF9F0A]">
-              ₹{calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees} / slot
-            </span>
-          </div>
-          <div className="rounded-[14px] bg-white/[0.08] p-3">
-            <SlotStrip
-              demandId={demand.id}
-              bids={demand.bids}
-              maxSlots={demand.maxSlots ?? 3}
-              budgetMax={demand.budgetMax}
-              budgetMin={demand.budgetMin}
-              disabled={!isOpen}
-            />
-          </div>
-        </div>
+        <CreditPaymentDrawer<{ invoice: PaymentInvoice; slot: number }>
+          open={purchasing}
+          onClose={() => setPurchasing(false)}
+          title="Take a response spot on this request"
+          items={[{ label: "1 response spot", credits: slotPrice.credits }]}
+          request={requestSlot}
+          onDone={handleSlotPaid}
+        />
 
-        {/* ── CTA ── */}
-        <Link
-          href={`/demands/${demand.id}`}
-          onClick={onClose}
-          className={cn(
-            "flex h-[50px] w-full items-center justify-center gap-1 rounded-[14px] bg-[#0A84FF] text-[17px] font-semibold tracking-[-0.01em] text-white transition-opacity active:opacity-70",
-            !isOpen && "pointer-events-none bg-[#3A3A3C] text-[#EBEBF5]/45",
-          )}
-        >
-          View Full Demand <ChevronRight className="h-5 w-5" />
-        </Link>
-
-        <DemandStatsPanel demandId={demand.id} openedFromCard tone="glass" />
-      </SheetScrollArea>
+        <MakeOfferDrawer
+          open={offerOpen}
+          onClose={() => setOfferOpen(false)}
+          demandId={demand.id}
+          recipientName={displayName}
+        />
       </ScreenshotGuard>
     </SnapSheet>
   );

@@ -613,6 +613,44 @@ import { usePostModal } from "@/components/post-modal-provider";
 import { useSwitchTab, type TabRoute } from "@/components/tab-navigation";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { useNavStyle } from "@/lib/nav-style";
+import { Glass, type GlassOptics } from "@samasante/liquid-glass";
+
+const IOS26_NAV_OPTICS: Partial<GlassOptics> = {
+  strength: 0.08,
+  depth: 0.35,
+  curvature: 0.45,
+  bend: 0.25,
+  bendWidth: 0.08,
+  dispersion: 0.25,
+  specular: 1,
+  sheenAngle: 50,
+  sheen: 0.95,
+  sheenWidth: 2,
+  sheenFalloff: 1.5,
+  glow: 0.15,
+  glowSpread: 1,
+  glowFalloff: 1.5,
+  frost: 3,
+  saturate: 1.85,
+  brightness: 0.04,
+};
+
+const IOS26_LENS_OPTICS: Partial<GlassOptics> = {
+  strength: 0.14,
+  depth: 0.45,
+  curvature: 0.55,
+  bend: 0.3,
+  bendWidth: 0.1,
+  dispersion: 0.3,
+  specular: 1,
+  sheenAngle: 50,
+  sheen: 0.95,
+  sheenWidth: 2,
+  glow: 0.18,
+  frost: 1,
+  saturate: 1.9,
+  brightness: 0.06,
+};
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -981,6 +1019,8 @@ function GlassBottomNav({ activeIndex }: { activeIndex: number }) {
   // true while the selection travels: it swells into a clear refracting
   // lens (the way iOS does it), then settles back into the frosted pill.
   const [morphing, setMorphing] = useState(false);
+  // Shrink state: when the user scrolls down, the navbar shrinks
+  const [shrunk, setShrunk] = useState(false);
 
   useEffect(() => {
     if (previousIndex.current === activeIndex) return;
@@ -990,6 +1030,32 @@ function GlassBottomNav({ activeIndex }: { activeIndex: number }) {
     const t = window.setTimeout(() => setMorphing(false), MORPH_MS);
     return () => window.clearTimeout(t);
   }, [activeIndex]);
+
+  // Scroll-based shrink: shrink smoothly when scrolling down, restore when scrolling up
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        const delta = currentY - lastScrollY;
+        if (currentY > 60 && delta > 10) {
+          setShrunk(true);
+          lastScrollY = currentY;
+        } else if (currentY <= 20 || delta < -10) {
+          setShrunk(false);
+          lastScrollY = currentY;
+        }
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Both selection layers ride the same x: one slot = 100% of their own width.
   const slotStyle = {
@@ -1006,16 +1072,22 @@ function GlassBottomNav({ activeIndex }: { activeIndex: number }) {
       aria-label="Primary"
       data-no-haptic // nav fires its own haptic; skip the global tap handler (no double buzz)
       className="pointer-events-none fixed inset-x-0 bottom-0 z-50"
-      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
+      style={{
+        paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
+        transition: "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+      }}
     >
-      <div className="pointer-events-auto mx-auto max-w-md px-4">
-        <LiquidGlass
-          radius={999}
-          tint={0.06}
-          scale={32}
-          bevelDepth={12}
-          className="h-[62px] shadow-[0_10px_36px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
-          style={{ background: "rgb(28 28 30 / 0.55)" }}
+      <motion.div
+        className="pointer-events-auto mx-auto max-w-md px-4"
+        style={{ transformOrigin: "bottom center" }}
+        animate={{ scale: shrunk ? 0.9 : 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
+      >
+        <Glass
+          radius={29}
+          optics={IOS26_NAV_OPTICS}
+          className="h-[58px] w-full rounded-full shadow-[0_10px_36px_rgba(0,0,0,0.45)]"
+          style={{ background: "rgba(255, 255, 255, 0.10)" }}
         >
           <div role="tablist" className="relative grid h-full grid-cols-5" style={{ padding: BAR_PADDING }}>
             {/* Resting selection: soft frosted pill under the icon */}
@@ -1042,7 +1114,7 @@ function GlassBottomNav({ activeIndex }: { activeIndex: number }) {
                 <motion.span
                   className={cn(
                     "relative flex items-center justify-center transition-colors duration-200",
-                    active ? "text-white" : "text-white/75"
+                    active ? "text-white" : "text-white/75",
                   )}
                   whileTap={{ scale: 0.86 }}
                   transition={{ type: "spring", stiffness: 600, damping: 30 }}
@@ -1101,20 +1173,17 @@ function GlassBottomNav({ activeIndex }: { activeIndex: number }) {
                 animate={{ ...morphScale, opacity: morphing ? 1 : 0 }}
                 transition={MORPH_SPRING}
               >
-                <LiquidGlass
-                  radius={999}
-                  tint={0.04}
-                  scale={22}
-                  bevelDepth={10}
-                  aberration={3}
-                  frost={0}
-                  className="h-full w-full shadow-[0_4px_18px_rgba(0,0,0,0.35)]"
+                <Glass
+                  radius={24}
+                  optics={IOS26_LENS_OPTICS}
+                  className="h-full w-full rounded-full shadow-[0_4px_18px_rgba(0,0,0,0.35)]"
+                  style={{ background: "rgba(255, 255, 255, 0.14)" }}
                 />
               </motion.div>
             </motion.div>
           </div>
-        </LiquidGlass>
-      </div>
+        </Glass>
+      </motion.div>
     </nav>
   );
 }

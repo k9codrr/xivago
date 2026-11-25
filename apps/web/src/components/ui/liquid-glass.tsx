@@ -52,16 +52,21 @@ export function LiquidGlass({
   const [filter, setFilter] = useState<{ id: string; svg: string } | null>(
     null,
   );
-  const [mode, setMode] = useState<"pending" | "simple" | "opaque">("pending");
+  const [mode, setMode] = useState<"refract" | "simple" | "opaque">("refract");
 
   useEffect(() => {
     if (prefersReducedTransparency()) setMode("opaque");
-    else if (isSafariLike() || !supportsUrlBackdropFilter()) setMode("simple");
+    else if (isSafariLike() || !supportsUrlBackdropFilter()) {
+      // On Safari-like (including iOS PWA), use "simple" mode which applies
+      // the GlassRim CSS-only glass effect. This avoids broken SVG filter
+      // refraction on WebKit while still giving a proper liquid glass look.
+      setMode("simple");
+    }
   }, []);
 
   useEffect(() => {
     const el = rootRef.current;
-    if (!el || mode !== "pending") return;
+    if (!el || mode !== "refract") return;
     const ro = new ResizeObserver(([entry]) => {
       if (!entry) return;
       // Border box, so the map matches the backdrop-filter layer.
@@ -78,7 +83,7 @@ export function LiquidGlass({
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== "pending" || size.w <= 1 || size.h <= 1) return;
+    if (mode !== "refract" || size.w <= 1 || size.h <= 1) return;
     let cancelled = false;
 
     (async () => {
@@ -134,25 +139,26 @@ export function LiquidGlass({
     mode === "opaque"
       ? "none"
       : mode === "simple"
-        ? // WebKit (all iOS browsers) can't use an SVG filter as a backdrop
-          // filter, so there's no refraction. Fake it the way iOS glass reads:
-          // a deeper blur, vivid colour through it and a clear (not milky) body.
-          "blur(18px) saturate(1.8) brightness(1.06)"
+        ? // Safari / iOS PWA: WebKit cannot run SVG url() in backdrop-filter,
+          // so use deep frosted blur + vivid saturation + clear specular rim.
+          "blur(26px) saturate(1.9) brightness(1.08)"
         : filter
           ? `url(#${filter.id}) blur(0.5px) saturate(1.85) brightness(1.02)`
-          : "blur(10px) saturate(1.6) brightness(1.04)";
+          : "blur(18px) saturate(1.8) brightness(1.06)";
 
   const background =
     mode === "opaque"
       ? undefined
       : mode === "simple"
-        ? `linear-gradient(180deg, rgb(255 255 255 / ${Math.min(1, tint * 0.35 + 0.04)}), rgb(255 255 255 / ${tint * 0.12}))`
-        : `rgb(255 255 255 / ${tint})`;
+        ? `linear-gradient(180deg, rgb(255 255 255 / ${Math.min(1, tint * 0.45 + 0.06)}), rgb(255 255 255 / ${tint * 0.18}))`
+        : filter
+          ? `rgb(255 255 255 / ${tint})`
+          : `linear-gradient(180deg, rgb(255 255 255 / ${Math.min(1, tint * 0.4 + 0.05)}), rgb(255 255 255 / ${tint * 0.15}))`;
 
   return (
     <div
       ref={rootRef}
-      data-refract={mode === "pending" && filter ? "true" : "false"}
+      data-refract={mode === "refract" && filter ? "true" : "false"}
       className={cn(
         "relative overflow-hidden isolate",
         mode === "opaque" && "bg-white dark:bg-neutral-900",
@@ -169,7 +175,7 @@ export function LiquidGlass({
       }}
       {...rest}
     >
-      {mode === "simple" ? <GlassRim /> : null}
+      {mode !== "opaque" ? <GlassRim /> : null}
       {filter ? (
         <span
           key={filter.id}
@@ -238,6 +244,12 @@ function prefersReducedTransparency() {
 function isSafariLike() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
+  // All iOS browsers (including PWA / standalone mode) use WebKit under the hood.
+  // Detect standalone PWA on iOS: navigator.standalone is true.
+  const isIOSPWA = (navigator as unknown as { standalone?: boolean }).standalone === true;
+  if (isIOSPWA) return true;
+  // Also treat iOS Chrome / Firefox / etc. as Safari-like since they all use WebKit
+  if (/iPhone|iPad|iPod/.test(ua)) return true;
   return /Safari/.test(ua) && !/Chrome|Chromium|Edg|OPR/.test(ua);
 }
 

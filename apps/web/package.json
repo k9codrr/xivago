@@ -26,6 +26,7 @@
     "@paper-design/shaders": "^0.0.82",
     "@prisma/client": "^6.1.0",
     "@radix-ui/react-slot": "^1.4.0",
+    "@samasante/liquid-glass": "^0.1.1",
     "@slotbook/db": "workspace:*",
     "@slotbook/payments": "workspace:*",
     "@slotbook/push": "workspace:*",

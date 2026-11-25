@@ -68,7 +68,12 @@ export function SheetScrollArea({ className, children }: { className?: string; c
 
 const THEMES: Record<SheetStyle, { sheet: string; style?: CSSProperties; backdrop: string; handle: string }> = {
   default: {
-    sheet: LIQUID_GLASS_SHEET,
+    sheet: "rounded-[2rem] border border-white/[0.16] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_-20px_80px_rgba(0,0,0,0.6)]",
+    style: {
+      background: "linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0.03) 100%), rgb(24 24 28 / 0.52)",
+      backdropFilter: "blur(36px) saturate(185%)",
+      WebkitBackdropFilter: "blur(36px) saturate(185%)",
+    },
     backdrop: "bg-black/30",
     handle: "bg-white/30",
   },

@@ -6,6 +6,24 @@ import { cn } from "@/lib/utils";
 import { SideMenu, type SideMenuUser } from "@/components/side-menu";
 import { NotificationBell } from "@/components/notification-bell";
 import { useSearchDrawer } from "@/components/fast-scroll-search";
+import { Glass, type GlassOptics } from "@samasante/liquid-glass";
+
+const IOS26_BTN_OPTICS: Partial<GlassOptics> = {
+  strength: 0.14,
+  depth: 0.3,
+  curvature: 0.55,
+  bend: 0.25,
+  bendWidth: 0.08,
+  dispersion: 0.2,
+  specular: 1,
+  sheenAngle: 50,
+  sheen: 0.95,
+  sheenWidth: 2,
+  glow: 0.15,
+  frost: 2,
+  saturate: 1.85,
+  brightness: 0.04,
+};
 
 /* Liquid-glass surface shared by the floating nav controls */
 const GLASS =
@@ -38,16 +56,30 @@ export function AppHeader({ user, className }: { user: SideMenuUser; className?:
       />
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={search.open}
-          aria-label="Search"
-          data-search-origin="header"
-          className={`flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-200 active:scale-90 ${GLASS}`}
+        <Glass
+          radius={22}
+          optics={IOS26_BTN_OPTICS}
+          className="rounded-full"
+          style={{ background: "rgba(255, 255, 255, 0.12)" }}
         >
-          <Search className="h-[20px] w-[20px] text-white" strokeWidth={2} />
-        </button>
-        <NotificationBell className={GLASS} />
+          <button
+            type="button"
+            onClick={search.open}
+            aria-label="Search"
+            data-search-origin="header"
+            className="flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-200 active:scale-90"
+          >
+            <Search className="h-[20px] w-[20px] text-white" strokeWidth={2} />
+          </button>
+        </Glass>
+        <Glass
+          radius={22}
+          optics={IOS26_BTN_OPTICS}
+          className="rounded-full"
+          style={{ background: "rgba(255, 255, 255, 0.12)" }}
+        >
+          <NotificationBell />
+        </Glass>
       </div>
 
       {search.drawer}
