@@ -19,6 +19,7 @@ import {
 import { prisma } from "@/lib/db";
 import { getOptionalUser } from "@/lib/guards";
 import { getDemandDetail, HIDDEN_FROM_FEED } from "@/lib/demand-access";
+import { getPlatformSettings } from "@/lib/platform-settings";
 import { isBoostActive } from "@/lib/boost-shared";
 import { CountdownBadge } from "@/components/countdown-badge";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -128,6 +129,8 @@ export default async function DemandDetailPage({ params }: PageProps) {
   const postId = postReference(demand.id);
   const completionText = completionLabel(demand.completionTimeline, demand.completionDate);
   const isOffer = demand.postType === "PROMOTE";
+  const { offerSlotsEnabled } = isOffer ? await getPlatformSettings() : { offerSlotsEnabled: true };
+  const slotsEnabled = !isOffer || offerSlotsEnabled;
   const areaText = serviceAreaLabel(demand, 6);
   const supportEmail = publicEnv.NEXT_PUBLIC_SUPPORT_EMAIL;
   const supportWhatsApp = publicEnv.NEXT_PUBLIC_SUPPORT_WHATSAPP.replace(/\D/g, "");
@@ -322,18 +325,26 @@ export default async function DemandDetailPage({ params }: PageProps) {
 
             {/* Response spots + actions */}
             <section className="card-shell space-y-3 p-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">
-                Response spots ({demand.bids.length} of {maxSlots} filled)
-              </p>
-              <SlotStrip
-                demandId={demand.id}
-                bids={demand.bids}
-                maxSlots={maxSlots}
-                budgetMax={demand.budgetMax}
-                budgetMin={demand.budgetMin}
-                disabled={demand.status !== "OPEN"}
-                isAuthorView={isAuthor}
-              />
+              {slotsEnabled ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">
+                    Response spots ({demand.bids.length} of {maxSlots} filled)
+                  </p>
+                  <SlotStrip
+                    demandId={demand.id}
+                    bids={demand.bids}
+                    maxSlots={maxSlots}
+                    budgetMax={demand.budgetMax}
+                    budgetMin={demand.budgetMin}
+                    disabled={demand.status !== "OPEN"}
+                    isAuthorView={isAuthor}
+                  />
+                </>
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  Response spot purchases on offer posts are currently disabled by admin.
+                </p>
+              )}
               <DemandDetailActions
                 demandId={demand.id}
                 isAuthor={isAuthor}

@@ -29,6 +29,7 @@ import { ScreenshotGuard } from "@/components/screenshot-guard";
 import { CreditPaymentDrawer, type PaymentInvoice } from "@/components/credit-payment-drawer";
 import { MakeOfferDrawer } from "@/components/make-offer-drawer";
 import { describeDemandCategory } from "@/lib/category-selection";
+import { useOfferSlotsEnabled } from "@/lib/use-platform-settings";
 import { demandTypeLabel } from "@/lib/demand-type";
 import { formatBudgetRange } from "@/lib/money";
 import { withPriceUnit } from "@/lib/price-units";
@@ -117,6 +118,8 @@ export function ModernDemandDrawer({ demand, open, onClose }: ModernDemandDrawer
       : demand.bids;
 
   const alreadyHolds = Boolean(me && bids.some((b) => b.bidder.id === me.id));
+  const offerSlotsEnabled = useOfferSlotsEnabled();
+  const slotsEnabled = demand.postType !== "PROMOTE" || offerSlotsEnabled;
   const maxSlots = demand.maxSlots ?? 3;
   const isFilled = bids.length >= maxSlots;
   const isOpen = demand.status === "OPEN";
@@ -482,26 +485,28 @@ export function ModernDemandDrawer({ demand, open, onClose }: ModernDemandDrawer
             )}
 
             {/* ── Bids & slot strip ── */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between px-4">
-                <p className="text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">
-                  Bids · {bids.length} of {maxSlots}
-                </p>
-                <span className="text-[13px] font-semibold text-[#FF9F0A]">
-                  ₹{slotPrice.rupees} / slot
-                </span>
+            {slotsEnabled && (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between px-4">
+                  <p className="text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">
+                    Bids · {bids.length} of {maxSlots}
+                  </p>
+                  <span className="text-[13px] font-semibold text-[#FF9F0A]">
+                    ₹{slotPrice.rupees} / slot
+                  </span>
+                </div>
+                <div className="rounded-[14px] bg-white/[0.08] p-3">
+                  <SlotStrip
+                    demandId={demand.id}
+                    bids={bids}
+                    maxSlots={maxSlots}
+                    budgetMax={demand.budgetMax}
+                    budgetMin={demand.budgetMin}
+                    disabled={!isOpen}
+                  />
+                </div>
               </div>
-              <div className="rounded-[14px] bg-white/[0.08] p-3">
-                <SlotStrip
-                  demandId={demand.id}
-                  bids={bids}
-                  maxSlots={maxSlots}
-                  budgetMax={demand.budgetMax}
-                  budgetMin={demand.budgetMin}
-                  disabled={!isOpen}
-                />
-              </div>
-            </div>
+            )}
 
             {/* ── View Full Demand link ── */}
             <Link
@@ -519,7 +524,7 @@ export function ModernDemandDrawer({ demand, open, onClose }: ModernDemandDrawer
           </div>
 
           {/* ── Fixed bottom buttons: Grab Spot / Chat + Make Offer ── */}
-          {isOpen && (
+          {isOpen && (slotsEnabled || alreadyHolds) && (
             <div className="shrink-0 border-t border-white/15 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
               <div className="flex items-center gap-2.5">
                 {alreadyHolds ? (
@@ -532,7 +537,7 @@ export function ModernDemandDrawer({ demand, open, onClose }: ModernDemandDrawer
                     <MessageCircle className="h-4 w-4" />
                     {openingChat ? "Opening…" : "Chat"}
                   </button>
-                ) : (
+                ) : slotsEnabled ? (
                   <button
                     type="button"
                     onClick={handleGrabSpot}
@@ -541,7 +546,7 @@ export function ModernDemandDrawer({ demand, open, onClose }: ModernDemandDrawer
                   >
                     {isFilled ? "Spots Filled" : `Grab Spot · ₹${slotPrice.rupees}`}
                   </button>
-                )}
+                ) : null}
 
                 <button
                   type="button"

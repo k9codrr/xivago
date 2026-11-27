@@ -5,6 +5,7 @@ import { apiError } from "@/lib/api-response";
 import { calculateSlotPrice } from "@/lib/slot-pricing";
 import { notifySlotPurchased } from "@/lib/wa-notifications";
 import { authorizeCreditSpend, createInvoice, CreditPaymentError } from "@/lib/credit-payment";
+import { getPlatformSettings } from "@/lib/platform-settings";
 
 export async function GET(
   _req: NextRequest,
@@ -43,6 +44,7 @@ export async function POST(
       where: { id: demandId },
       select: {
         id: true,
+        postType: true,
         status: true,
         timelineEnd: true,
         authorId: true,
@@ -54,6 +56,12 @@ export async function POST(
     });
 
     if (!demand) return apiError(404, "NOT_FOUND", "This request doesn't exist.");
+    if (demand.postType === "PROMOTE") {
+      const { offerSlotsEnabled } = await getPlatformSettings();
+      if (!offerSlotsEnabled) {
+        return apiError(403, "OFFER_SLOTS_DISABLED", "Buying response spots on offer posts is currently disabled.");
+      }
+    }
     if (demand.status !== "OPEN" || demand.timelineEnd <= new Date()) {
       return apiError(409, "DEMAND_UNAVAILABLE", "This request is closed.");
     }

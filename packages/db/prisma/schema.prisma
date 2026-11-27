@@ -1072,6 +1072,14 @@ model BoostSettings {
   @@map("boost_settings")
 }
 
+model PlatformSettings {
+  id                String   @id @default("global")
+  offerSlotsEnabled Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
 model FeaturedNiche {
   id           String       @id // parent category id, e.g. "3"
   name         String

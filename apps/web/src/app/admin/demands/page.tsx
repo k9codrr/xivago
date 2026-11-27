@@ -92,6 +92,40 @@ export default function AdminDemandsPage() {
   const [filters, setFilters] = useState<Filters>({ type: "", status: "", area: "", featured: false, q: "" });
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [offerSlotsEnabled, setOfferSlotsEnabled] = useState<boolean | null>(null);
+  const [togglingOfferSlots, setTogglingOfferSlots] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/platform-settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.settings && typeof d.settings.offerSlotsEnabled === "boolean") {
+          setOfferSlotsEnabled(d.settings.offerSlotsEnabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleOfferSlots() {
+    if (offerSlotsEnabled === null || togglingOfferSlots) return;
+    const next = !offerSlotsEnabled;
+    setTogglingOfferSlots(true);
+    try {
+      const res = await fetch("/api/admin/platform-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerSlotsEnabled: next }),
+      });
+      if (!res.ok) {
+        toast.error("Could not update offer slot setting.");
+        return;
+      }
+      setOfferSlotsEnabled(next);
+      toast.success(next ? "Offer post spots enabled." : "Offer post spots disabled.");
+    } finally {
+      setTogglingOfferSlots(false);
+    }
+  }
 
   const load = useCallback(async (f: Filters) => {
     setDemands(null);
@@ -181,6 +215,36 @@ export default function AdminDemandsPage() {
         <Stat label="Offers live" value={count("PROMOTE", "OPEN")} />
         <Stat label="Requests (all)" value={count("REQUIREMENT")} />
         <Stat label="Requests live" value={count("REQUIREMENT", "OPEN")} />
+      </div>
+
+      {/* ── Offer posts slot toggle ── */}
+      <div className="card-shell mb-6 flex items-center justify-between gap-4 p-4">
+        <div>
+          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            Buy spots on Offer posts
+          </p>
+          <p className="text-xs text-neutral-500">
+            Enable or disable buying response spots on Offer posts. Request posts are unaffected.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={Boolean(offerSlotsEnabled)}
+          disabled={offerSlotsEnabled === null || togglingOfferSlots}
+          onClick={() => void toggleOfferSlots()}
+          className={cn(
+            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50",
+            offerSlotsEnabled ? "bg-emerald-500" : "bg-neutral-300 dark:bg-neutral-700",
+          )}
+        >
+          <span
+            className={cn(
+              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
+              offerSlotsEnabled ? "translate-x-5" : "translate-x-0",
+            )}
+          />
+        </button>
       </div>
 
       <h2 className="mb-2 text-sm font-semibold text-neutral-500">

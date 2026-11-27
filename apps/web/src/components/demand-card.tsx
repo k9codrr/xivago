@@ -195,6 +195,7 @@ import { cn } from "@/lib/utils";
 import { SnapSheet, SheetScrollArea } from "@/components/ui/snap-sheet";
 import { useSheetStyle } from "@/lib/sheet-style";
 import { useDrawerStyle } from "@/lib/drawer-style";
+import { useOfferSlotsEnabled } from "@/lib/use-platform-settings";
 import { ModernDemandDrawer } from "@/components/modern-demand-drawer";
 import { CreditPaymentDrawer, type PaymentInvoice } from "@/components/credit-payment-drawer";
 import type { CreditAuth } from "@/lib/validation/tpin";
@@ -590,6 +591,8 @@ function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: 
   const providerName = provider?.name ?? demand.customProviderName ?? undefined;
   const typeLabel = demandTypeLabel(demand);
   const alreadyHolds = Boolean(me && bids.some((b) => b.bidder.id === me.id));
+  const offerSlotsEnabled = useOfferSlotsEnabled();
+  const slotsEnabled = demand.postType !== "PROMOTE" || offerSlotsEnabled;
   const maxSlots = demand.maxSlots ?? 3;
   const isFilled = bids.length >= maxSlots;
   const slotPrice = calculateSlotPrice(demand.budgetMax, demand.budgetMin);
@@ -778,26 +781,28 @@ function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: 
           )}
 
           {/* ── bids & slot strip ── */}
-          <div>
-            <div className="mb-1.5 flex items-center justify-between px-4">
-              <p className="text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">
-                Bids · {demand.bids.length} of {demand.maxSlots ?? 3}
-              </p>
-              <span className="text-[13px] font-semibold text-[#FF9F0A]">
-                ₹{calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees} / slot
-              </span>
+          {slotsEnabled && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between px-4">
+                <p className="text-[13px] uppercase tracking-[0.02em] text-[#EBEBF5]/60">
+                  Bids · {demand.bids.length} of {demand.maxSlots ?? 3}
+                </p>
+                <span className="text-[13px] font-semibold text-[#FF9F0A]">
+                  ₹{calculateSlotPrice(demand.budgetMax, demand.budgetMin).rupees} / slot
+                </span>
+              </div>
+              <div className="rounded-[14px] bg-white/[0.08] p-3">
+                <SlotStrip
+                  demandId={demand.id}
+                  bids={demand.bids}
+                  maxSlots={demand.maxSlots ?? 3}
+                  budgetMax={demand.budgetMax}
+                  budgetMin={demand.budgetMin}
+                  disabled={!isOpen}
+                />
+              </div>
             </div>
-            <div className="rounded-[14px] bg-white/[0.08] p-3">
-              <SlotStrip
-                demandId={demand.id}
-                bids={demand.bids}
-                maxSlots={demand.maxSlots ?? 3}
-                budgetMax={demand.budgetMax}
-                budgetMin={demand.budgetMin}
-                disabled={!isOpen}
-              />
-            </div>
-          </div>
+          )}
 
           {/* ── CTA ── */}
           <Link
@@ -815,7 +820,7 @@ function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: 
         </SheetScrollArea>
 
         {/* ── Fixed bottom buttons: Grab Spot / Chat + Make Offer ── */}
-        {isOpen && (
+        {isOpen && (slotsEnabled || alreadyHolds) && (
           <div className="shrink-0 border-t border-white/10 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
             <div className="flex items-center gap-2">
               {alreadyHolds ? (
@@ -828,7 +833,7 @@ function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: 
                   <MessageCircle className="h-4 w-4" />
                   {openingChat ? "Opening…" : "Chat"}
                 </button>
-              ) : (
+              ) : slotsEnabled ? (
                 <button
                   type="button"
                   onClick={handleGrabSpot}
@@ -837,7 +842,7 @@ function DetailSheet({ demand, open, onClose }: { demand: DemandCardData; open: 
                 >
                   {isFilled ? "Spots Filled" : `Grab Spot · ₹${slotPrice.rupees}`}
                 </button>
-              )}
+              ) : null}
               <button
                 type="button"
                 onClick={handleMakeOffer}
